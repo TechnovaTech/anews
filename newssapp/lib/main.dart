@@ -483,11 +483,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     Row(
-                      children: const [
+                      children: [
                         Expanded(child: Divider()),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Text('Or continue with'),
+                          child: Text('Or continue with', style: TextStyle(fontSize: 12)),
                         ),
                         Expanded(child: Divider()),
                       ],
@@ -554,104 +554,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 48,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                        ),
-                        onPressed: () async {
-                          print('🔵 Facebook login button pressed');
-                          
-                          try {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Opening Facebook Sign-In...')),
-                            );
-                            
-                            final account = await FacebookAuthService.signIn();
-                            print('🔵 Facebook account result: $account');
-                            
-                            if (account != null) {
-                              if (account.email.isEmpty) {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Facebook account has no email. Please use email signup.')),
-                                );
-                                return;
-                              }
-                              
-                              try {
-                                print('🔵 Calling Facebook API with: ${account.email}, ${account.name}');
-                                final result = await ApiService.facebookSignIn(
-                                  account.email,
-                                  account.name,
-                                  account.id,
-                                  '',
-                                );
-                                
-                                final prefs = await SharedPreferences.getInstance();
-                                await prefs.setBool('isLoggedIn', true);
-                                final user = result['user'];
-                                final userId = user['_id']?.toString() ?? user['id']?.toString() ?? '';
-                                await prefs.setString('userId', userId);
-                                await prefs.setString('userName', user['name'].toString());
-                                await prefs.setString('userEmail', user['email'].toString());
-                                
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Facebook login successful!')),
-                                );
-                                Navigator.of(context).pushReplacementNamed(MainNav.routeName);
-                              } catch (e) {
-                                print('🔴 API call failed: $e');
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Login failed: Please try again')),
-                                );
-                              }
-                            } else {
-                              print('🔵 Facebook login returned null');
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Facebook login cancelled or failed')),
-                              );
-                            }
-                          } catch (e) {
-                            print('🔴 Facebook button error: $e');
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Facebook login error. Please try again.')),
-                            );
-                          }
-                        },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.facebook, color: Colors.blue),
-                            SizedBox(width: 8),
-                            Text('Continue with Facebook'),
-                          ],
-                        ),
-                      ),
-                    ),
+
                   ],
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
-              child: TextButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const FacebookTestScreen()),
-                  );
-                },
-                child: const Text('Debug Facebook', style: TextStyle(fontSize: 12)),
-              ),
-            ),
+
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: Row(
@@ -906,13 +814,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     DropdownButtonFormField<String>(
                       value: _selectedState,
                       hint: const Text('Select your state'),
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                       ),
                       items: _indianStates.map((state) {
                         return DropdownMenuItem(
                           value: state,
-                          child: Text(state),
+                          child: Text(state, overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
                       onChanged: (value) {
@@ -1014,11 +923,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     const SizedBox(height: 16),
                     Row(
-                      children: const [
+                      children: [
                         Expanded(child: Divider()),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Text('Or continue with'),
+                          child: Text('Or continue with', style: TextStyle(fontSize: 12)),
                         ),
                         Expanded(child: Divider()),
                       ],
@@ -1055,70 +964,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 48,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                        ),
-                        onPressed: () async {
-                          print('🔵 Facebook signup button pressed');
-                          
-                          try {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Connecting to Facebook...')),
-                            );
-                            
-                            final account = await FacebookAuthService.signIn();
-                            print('🔵 Facebook signup result: $account');
-                            
-                            if (account != null) {
-                              if (account.email.isEmpty) {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Facebook account has no email. Please use email signup.')),
-                                );
-                                return;
-                              }
-                              
-                              setState(() {
-                                _isFacebookSignUp = true;
-                                _nameCtrl.text = account.name;
-                                _emailCtrl.text = account.email;
-                              });
-                              
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Facebook connected! Please select your state.')),
-                              );
-                            } else {
-                              print('🔵 Facebook signup returned null');
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Facebook connection cancelled or failed')),
-                              );
-                            }
-                          } catch (e) {
-                            print('🔴 Facebook signup error: $e');
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Facebook connection error. Please try again.')),
-                            );
-                          }
-                        },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.facebook, color: Colors.blue),
-                            SizedBox(width: 8),
-                            Text('Continue with Facebook'),
-                          ],
-                        ),
-                      ),
-                    ),
+
                   ],
                 ),
               ),
@@ -5278,3 +5124,4 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 }
+
