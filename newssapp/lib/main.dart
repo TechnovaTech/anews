@@ -3734,30 +3734,30 @@ class NewsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final red = AsiazeApp.primaryRed;
-    return Card(
-      elevation: 2,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ArticleDetailScreen(
-                    imageUrl: imageUrl,
-                    title: title,
-                    subtitle: subtitle,
-                    meta: meta,
-                    explanation: explanation ?? '',
-                    categoryId: categoryId,
-                  ),
-                ),
-              );
-            },
-            child: Stack(
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ArticleDetailScreen(
+              imageUrl: imageUrl,
+              title: title,
+              subtitle: subtitle,
+              meta: meta,
+              explanation: explanation ?? '',
+              categoryId: categoryId,
+            ),
+          ),
+        );
+      },
+      child: Card(
+        elevation: 2,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
               children: [
                 (imageUrl.startsWith('asset:')
                     ? Image.asset(
@@ -3818,58 +3818,58 @@ class NewsCard extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Text(
-                      meta,
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-                    ),
-                    const Spacer(),
-                    if (explanation != null && explanation!.isNotEmpty)
-                      TextButton.icon(
-                        onPressed: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (context) => ExplainSheet(
-                              title: title,
-                              summary: subtitle,
-                              explanation: explanation!,
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.article_outlined, size: 16),
-                        label: const Text('Read More', style: TextStyle(fontSize: 12)),
-                        style: TextButton.styleFrom(
-                          foregroundColor: red,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Text(
+                        meta,
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                       ),
-                  ],
-                ),
-              ],
+                      const Spacer(),
+                      if (explanation != null && explanation!.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => ExplainSheet(
+                                title: title,
+                                summary: subtitle,
+                                explanation: explanation!,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.article_outlined, size: 16),
+                          label: const Text('Read More', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: red,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
