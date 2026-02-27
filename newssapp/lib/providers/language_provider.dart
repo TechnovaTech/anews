@@ -110,7 +110,7 @@ final Map<String, Map<String, String>> _translations = {
   'logout': {'english': 'Logout', 'hindi': 'लॉगआउट', 'bengali': 'লগআউট'},
   'search': {'english': 'Search news...', 'hindi': 'समाचार खोजें...', 'bengali': 'খবর খুঁজুন...'},
   'no_results': {'english': 'No results found', 'hindi': 'कोई परिणाम नहीं मिला', 'bengali': 'কোন ফলাফল পাওয়া যায়নি'},
-  'breaking_news': {'english': 'Breaking News: Major updates from around the world...', 'hindi': 'ब्रेकिंग न्यूज़: दुनिया भर से बड़ी खबरें...', 'bengali': 'ব্রেকিং নিউজ: বিশ্বজুড়ে প্রধান আপডেট...'},
+  'breaking_news': {'english': 'Breaking News', 'hindi': 'ब्रेकिंग न्यूज़', 'bengali': 'ব্রেকিং নিউজ'},
   'choose_language': {'english': 'Choose Your Language', 'hindi': 'अपनी भाषा चुनें', 'bengali': 'আপনার ভাষা চয়ন করুন'},
   'select_interests': {'english': 'Select Your Interests', 'hindi': 'अपनी रुचियां चुनें', 'bengali': 'আপনার আগ্রহ নির্বাচন করুন'},
   'category_preferences': {'english': 'Category Preferences', 'hindi': 'श्रेणी प्राथमिकताएं', 'bengali': 'বিভাগ পছন্দ'},

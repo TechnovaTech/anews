@@ -2860,6 +2860,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final displayCategories = [
+      {'name': lang.translate('breaking_news'), '_id': 'breaking_news', 'isTranslated': true, 'isBreakingNews': true},
       {'name': lang.translate('my_feed'), '_id': '', 'isTranslated': true},
       ..._allCategories,
     ];
@@ -2971,42 +2972,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            // Breaking news banner
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(
-                width: double.infinity,
-                height: 36,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: red,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    lang.translate('breaking_news'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.left,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             // Swipeable category pages
             Expanded(
               child: PageView.builder(
@@ -3020,6 +2986,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemBuilder: (context, index) {
                   final cat = displayCategories[index];
                   final catName = cat['name'].toString();
+                  final isBreakingNews = cat['isBreakingNews'] == true;
+                  
+                  // Show Breaking News page or regular FeedList
+                  if (isBreakingNews) {
+                    return const BreakingNewsPage();
+                  }
+                  
                   return FeedList(
                     categoryName: catName,
                     categoryId: cat['_id']?.toString(),
@@ -3029,6 +3002,498 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------- Breaking News Page ----------------
+class BreakingNewsPage extends StatefulWidget {
+  const BreakingNewsPage({super.key});
+
+  @override
+  State<BreakingNewsPage> createState() => _BreakingNewsPageState();
+}
+
+class _BreakingNewsPageState extends State<BreakingNewsPage> {
+  List<dynamic> _breakingNews = [];
+  List<dynamic> _reels = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBreakingNews();
+  }
+
+  Future<void> _fetchBreakingNews() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final langCode = prefs.getString('language') ?? 'EN';
+      final language = langCode == 'HIN' ? 'hindi' : (langCode == 'BEN' ? 'bengali' : 'english');
+      
+      final allNews = await ApiService.getNews(language: language);
+      final reels = await ApiService.getReels(language: langCode);
+      
+      if (mounted) {
+        setState(() {
+          _breakingNews = allNews.take(10).toList();
+          _reels = reels.take(10).toList();
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final red = AsiazeApp.primaryRed;
+    final lang = Provider.of<LanguageProvider>(context);
+    
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Breaking News Section Header
+          Container(
+            width: double.infinity,
+            color: Colors.white,
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Breaking News',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: const Text(
+                    'View all',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Breaking News Horizontal Scroll (like reference image)
+          if (_breakingNews.isNotEmpty)
+            Container(
+              color: Colors.white,
+              height: 280,
+              padding: const EdgeInsets.only(bottom: 16),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _breakingNews.length,
+                itemBuilder: (context, index) {
+                  final article = _breakingNews[index];
+                  final title = lang.getNewsContent(article, 'title');
+                  final summary = lang.getNewsContent(article, 'summary');
+                  final content = lang.getNewsContent(article, 'content');
+                  final explanation = lang.getNewsContent(article, 'explanation');
+                  final imageUrl = article['image'] ?? 'asset:refranceimages/Group (16).png';
+                  final categoryName = article['category']?['name'] ?? 'News';
+                  final hasVideo = article['videoUrl'] != null && article['videoUrl'].toString().isNotEmpty;
+                  
+                  return InkWell(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ArticleDetailScreen(
+                            imageUrl: imageUrl,
+                            title: title.isNotEmpty ? title : 'No Title',
+                            subtitle: summary.isNotEmpty ? summary : content,
+                            meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
+                            explanation: explanation,
+                            categoryId: article['category']?['_id']?.toString(),
+                            videoUrl: article['videoUrl'],
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 320,
+                      margin: const EdgeInsets.only(right: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          // Background Image
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: imageUrl.startsWith('asset:')
+                                ? Image.asset(
+                                    imageUrl.replaceFirst('asset:', ''),
+                                    width: 320,
+                                    height: 280,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.network(
+                                    imageUrl,
+                                    width: 320,
+                                    height: 280,
+                                    fit: BoxFit.cover,
+                                  ),
+                          ),
+                          // Gradient overlay
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.7),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Category badge
+                          Positioned(
+                            top: 16,
+                            left: 16,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                categoryName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Play button if video exists
+                          if (hasVideo)
+                            Positioned.fill(
+                              child: Center(
+                                child: Container(
+                                  width: 70,
+                                  height: 70,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.9),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.play_arrow, color: Colors.black, size: 45),
+                                ),
+                              ),
+                            ),
+                          // Content at bottom
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        'ASIAZE',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Icon(Icons.verified, color: Colors.blue, size: 14),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        formatPublishedDate(article['publishedAt']),
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.8),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    title.isNotEmpty ? title : 'No Title',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.3,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          
+          const SizedBox(height: 20),
+          
+          // Recommendation Section Header
+          Container(
+            width: double.infinity,
+            color: Colors.white,
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Recommendation',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: red,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: const Text(
+                    'View all',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Recommendation List
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _breakingNews.length > 5 ? 5 : _breakingNews.length,
+            itemBuilder: (context, index) {
+              final article = _breakingNews[index];
+              final title = lang.getNewsContent(article, 'title');
+              final summary = lang.getNewsContent(article, 'summary');
+              final content = lang.getNewsContent(article, 'content');
+              final explanation = lang.getNewsContent(article, 'explanation');
+              final imageUrl = article['image'] ?? 'asset:refranceimages/Group (16).png';
+              final categoryName = article['category']?['name'] ?? 'News';
+              
+              return InkWell(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => ArticleDetailScreen(
+                        imageUrl: imageUrl,
+                        title: title.isNotEmpty ? title : 'No Title',
+                        subtitle: summary.isNotEmpty ? summary : content,
+                        meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
+                        explanation: explanation,
+                        categoryId: article['category']?['_id']?.toString(),
+                        videoUrl: article['videoUrl'],
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade200),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Small thumbnail
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: imageUrl.startsWith('asset:')
+                            ? Image.asset(
+                                imageUrl.replaceFirst('asset:', ''),
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              )
+                            : Image.network(
+                                imageUrl,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Title and category
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title.isNotEmpty ? title : 'No Title',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                                height: 1.3,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              categoryName,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: red,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Reels Section
+          Container(
+            width: double.infinity,
+            color: Colors.grey.shade100,
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Reels',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: const Text(
+                    'View all',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Reels Horizontal Scroll
+          if (_reels.isNotEmpty)
+            Container(
+              color: Colors.grey.shade100,
+              height: 200,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _reels.length,
+                itemBuilder: (context, index) {
+                  final reel = _reels[index];
+                  final thumbnail = reel['thumbnail'] ?? 'asset:refranceimages/Group (16).png';
+                  
+                  return InkWell(
+                    onTap: () {
+                      // Navigate to reel player
+                    },
+                    child: Container(
+                      width: 120,
+                      margin: const EdgeInsets.only(right: 12, bottom: 16),
+                      decoration: BoxDecoration(
+                        color: red,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            thumbnail.startsWith('asset:')
+                                ? Image.asset(
+                                    thumbnail.replaceFirst('asset:', ''),
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.network(
+                                    thumbnail,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: red,
+                                        child: const Center(
+                                          child: Icon(Icons.play_circle_outline, color: Colors.white, size: 40),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                            // Play icon overlay
+                            Center(
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.play_arrow, color: Colors.white, size: 28),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }
@@ -3077,7 +3542,6 @@ class _FeedListState extends State<FeedList> with SingleTickerProviderStateMixin
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final lang = Provider.of<LanguageProvider>(context);
     _fetchNews();
   }
 
@@ -3233,6 +3697,7 @@ class _FeedListState extends State<FeedList> with SingleTickerProviderStateMixin
     final summary = lang.getNewsContent(article, 'summary');
     final content = lang.getNewsContent(article, 'content');
     final explanation = lang.getNewsContent(article, 'explanation');
+    final videoUrl = article['videoUrl'];
     
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -3243,21 +3708,9 @@ class _FeedListState extends State<FeedList> with SingleTickerProviderStateMixin
         meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
         explanation: explanation,
         categoryId: article['category']?['_id']?.toString(),
+        videoUrl: videoUrl,
       ),
     );
-  }
-
-  String _formatDate(dynamic date) {
-    if (date == null) return 'Recently';
-    try {
-      final dt = DateTime.parse(date.toString());
-      final diff = DateTime.now().difference(dt);
-      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-      if (diff.inHours < 24) return '${diff.inHours}h ago';
-      return '${diff.inDays}d ago';
-    } catch (e) {
-      return 'Recently';
-    }
   }
 }
 
@@ -3831,6 +4284,7 @@ class NewsCard extends StatelessWidget {
   final String meta;
   final String? explanation;
   final String? categoryId;
+  final String? videoUrl;
   const NewsCard({
     super.key,
     required this.imageUrl,
@@ -3839,6 +4293,7 @@ class NewsCard extends StatelessWidget {
     required this.meta,
     this.explanation,
     this.categoryId,
+    this.videoUrl,
   });
 
   @override
@@ -3857,6 +4312,7 @@ class NewsCard extends StatelessWidget {
               meta: meta,
               explanation: explanation ?? '',
               categoryId: categoryId,
+              videoUrl: videoUrl,
             ),
           ),
         );
@@ -4033,6 +4489,7 @@ class ArticleDetailScreen extends StatefulWidget {
   final String meta;
   final String explanation;
   final String? categoryId;
+  final String? videoUrl;
 
   const ArticleDetailScreen({
     super.key,
@@ -4042,6 +4499,7 @@ class ArticleDetailScreen extends StatefulWidget {
     required this.meta,
     required this.explanation,
     this.categoryId,
+    this.videoUrl,
   });
 
   @override
@@ -4059,6 +4517,10 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Load content immediately when screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadOtherNews();
+    });
   }
 
   @override
@@ -4068,7 +4530,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.8 && 
+    // Content is already loaded on init, this is just a backup
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.3 && 
         !_loadingOtherNews && !_hasLoadedOtherNews) {
       _loadOtherNews();
     }
@@ -4084,7 +4547,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       final langCode = prefs.getString('language') ?? 'EN';
       final language = langCode == 'HIN' ? 'hindi' : (langCode == 'BEN' ? 'bengali' : 'english');
       
-      // Get categories and other news
+      // Get categories and news
       final categories = await ApiService.getCategories();
       final allNews = await ApiService.getNews(language: language);
       
@@ -4106,210 +4569,304 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   Widget build(BuildContext context) {
     final red = AsiazeApp.primaryRed;
     final lang = Provider.of<LanguageProvider>(context);
+    final screenHeight = MediaQuery.of(context).size.height;
+    final cardHeight = screenHeight * 0.7;
     
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'ASIAZE',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share, color: Colors.black),
-            onPressed: () async {
-              final shareText = '${widget.title}\n\n${widget.subtitle}\n\nRead more on asiaze';
-              await Share.share(
-                shareText,
-                subject: widget.title,
-              );
-            },
-          ),
-        ],
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
           controller: _scrollController,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Main Article Content
-              Padding(
-                padding: const EdgeInsets.all(16),
+              // Main Article Card (70% of screen)
+              Container(
+                height: cardHeight,
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: widget.imageUrl.startsWith('asset:')
-                          ? Image.asset(
-                              widget.imageUrl.replaceFirst('asset:', ''),
-                              width: double.infinity,
-                              height: 200,
-                              fit: BoxFit.cover,
+                    // Video/Image Section (60% of card)
+                    Expanded(
+                      flex: 60,
+                      child: Stack(
+                        children: [
+                          // Video player if video exists, otherwise show image
+                          if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty)
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                              child: Container(
+                                width: double.infinity,
+                                color: Colors.black,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    // Video thumbnail (image)
+                                    if (widget.imageUrl.isNotEmpty)
+                                      widget.imageUrl.startsWith('asset:')
+                                          ? Image.asset(
+                                              widget.imageUrl.replaceFirst('asset:', ''),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Image.network(
+                                              widget.imageUrl,
+                                              fit: BoxFit.cover,
+                                            ),
+                                    // Play button overlay
+                                    Center(
+                                      child: Container(
+                                        width: 70,
+                                        height: 70,
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.6),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.play_arrow, color: Colors.white, size: 45),
+                                      ),
+                                    ),
+                                    // Tap to play
+                                    Positioned.fill(
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: () {
+                                            // TODO: Implement video player
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Video player coming soon')),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             )
-                          : Image.network(
-                              widget.imageUrl,
-                              width: double.infinity,
-                              height: 200,
-                              fit: BoxFit.cover,
+                          else
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                              child: widget.imageUrl.startsWith('asset:')
+                                  ? Image.asset(
+                                      widget.imageUrl.replaceFirst('asset:', ''),
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Image.network(
+                                      widget.imageUrl,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                    ),
                             ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      widget.title,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.subtitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade700,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.meta,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 2,
-                      width: double.infinity,
-                      color: red,
-                    ),
-                    const SizedBox(height: 16),
-                    if (widget.explanation.isNotEmpty)
-                      Text(
-                        widget.explanation,
-                        style: TextStyle(
-                          fontSize: 15,
-                          height: 1.7,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                    const SizedBox(height: 32),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ValueListenableBuilder<List<SavedArticle>>(
-                          valueListenable: SavedArticlesStore.saved,
-                          builder: (context, saved, _) {
-                            final isSaved = saved.any((e) => e.title == widget.title);
-                            return IconButton(
-                              icon: Icon(
-                                isSaved ? Icons.favorite : Icons.favorite_border,
-                                size: 32,
-                                color: Colors.black,
+                          // Back button overlay
+                          Positioned(
+                            top: 12,
+                            left: 12,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.5),
+                                shape: BoxShape.circle,
                               ),
-                              onPressed: () {
-                                SavedArticlesStore.toggle(SavedArticle(
-                                  image: widget.imageUrl,
-                                  title: widget.title,
-                                  subtitle: widget.subtitle,
-                                  meta: widget.meta,
-                                ));
-                              },
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 24),
-                        ValueListenableBuilder<List<SavedArticle>>(
-                          valueListenable: SavedArticlesStore.saved,
-                          builder: (context, saved, _) {
-                            final isSaved = saved.any((e) => e.title == widget.title);
-                            return IconButton(
-                              icon: Icon(
-                                isSaved ? Icons.bookmark : Icons.bookmark_border,
-                                size: 32,
-                                color: Colors.black,
+                              child: IconButton(
+                                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                                onPressed: () => Navigator.pop(context),
                               ),
-                              onPressed: () {
-                                SavedArticlesStore.toggle(SavedArticle(
-                                  image: widget.imageUrl,
-                                  title: widget.title,
-                                  subtitle: widget.subtitle,
-                                  meta: widget.meta,
-                                ));
-                              },
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 24),
-                        IconButton(
-                          icon: const Icon(Icons.share, size: 32, color: Colors.black),
-                          onPressed: () async {
-                            final shareText = '${widget.title}\n\n${widget.subtitle}\n\nRead more on asiaze';
-                            await Share.share(
-                              shareText,
-                              subject: widget.title,
-                            );
-                          },
-                        ),
-                      ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 40),
+                    // Content Section (40% of card)
+                    Expanded(
+                      flex: 40,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.title,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.3,
+                                        color: Colors.black,
+                                      ),
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      widget.subtitle,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade700,
+                                        height: 1.4,
+                                      ),
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      widget.meta,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
               
-              // Other News Section
+              // Bottom Actions Row
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Bookmark Icon
+                    ValueListenableBuilder<List<SavedArticle>>(
+                      valueListenable: SavedArticlesStore.saved,
+                      builder: (context, saved, _) {
+                        final isSaved = saved.any((e) => e.title == widget.title);
+                        return IconButton(
+                          icon: Icon(
+                            isSaved ? Icons.bookmark : Icons.bookmark_border,
+                            size: 28,
+                            color: Colors.black,
+                          ),
+                          onPressed: () {
+                            SavedArticlesStore.toggle(SavedArticle(
+                              image: widget.imageUrl,
+                              title: widget.title,
+                              subtitle: widget.subtitle,
+                              meta: widget.meta,
+                            ));
+                          },
+                        );
+                      },
+                    ),
+                    
+                    // Read More Button
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => ExplainSheet(
+                                title: widget.title,
+                                summary: widget.subtitle,
+                                explanation: widget.explanation,
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Read More',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Share Icon
+                    IconButton(
+                      icon: const Icon(Icons.share, size: 28, color: Colors.black),
+                      onPressed: () async {
+                        final shareText = '${widget.title}\n\n${widget.subtitle}\n\nRead more on asiaze';
+                        await Share.share(
+                          shareText,
+                          subject: widget.title,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Scroll Indicator
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade600, size: 20),
+                      Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade600, size: 20),
+                      const SizedBox(height: 4),
+                      Text(
+                        'next',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Loading indicator
               if (_loadingOtherNews)
                 const Padding(
                   padding: EdgeInsets.all(20),
                   child: Center(child: CircularProgressIndicator()),
                 ),
               
+              // Recommendation Section (only section on scroll)
               if (_hasLoadedOtherNews && _otherNews.isNotEmpty) ...[
                 Container(
                   width: double.infinity,
                   color: Colors.white,
                   padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        lang.translate('other_news'),
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: red,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Discover more stories from different categories',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'Recommendation',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: red,
+                    ),
                   ),
                 ),
                 
-                // Other News List
+                // Recommendation List (small thumbnails)
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -4320,16 +4877,83 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                     final summary = lang.getNewsContent(article, 'summary');
                     final content = lang.getNewsContent(article, 'content');
                     final explanation = lang.getNewsContent(article, 'explanation');
+                    final imageUrl = article['image'] ?? 'asset:refranceimages/Group (16).png';
+                    final categoryName = article['category']?['name'] ?? 'News';
                     
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: NewsCard(
-                        imageUrl: article['image'] ?? 'asset:refranceimages/Group (16).png',
-                        title: title.isNotEmpty ? title : 'No Title',
-                        subtitle: summary.isNotEmpty ? summary : content,
-                        meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
-                        explanation: explanation,
-                        categoryId: article['category']?['_id']?.toString(),
+                    return InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => ArticleDetailScreen(
+                              imageUrl: imageUrl,
+                              title: title.isNotEmpty ? title : 'No Title',
+                              subtitle: summary.isNotEmpty ? summary : content,
+                              meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
+                              explanation: explanation,
+                              categoryId: article['category']?['_id']?.toString(),
+                              videoUrl: article['videoUrl'],
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border(
+                            bottom: BorderSide(color: Colors.grey.shade200),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            // Small thumbnail
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: imageUrl.startsWith('asset:')
+                                  ? Image.asset(
+                                      imageUrl.replaceFirst('asset:', ''),
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Image.network(
+                                      imageUrl,
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Title and category
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title.isNotEmpty ? title : 'No Title',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black,
+                                      height: 1.3,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    categoryName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: red,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
