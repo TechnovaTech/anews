@@ -31,8 +31,12 @@ export default function EditNewsPage({ params }: { params: Promise<{ id: string 
     source: '',
     state: '',
     timestamp: '',
-    image: ''
+    image: '',
+    videoUrl: ''
   })
+  const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [videoPreview, setVideoPreview] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     params.then(p => {
@@ -91,10 +95,14 @@ export default function EditNewsPage({ params }: { params: Promise<{ id: string 
         source: news.source || '',
         state: news.state || '',
         timestamp: news.publishedAt ? new Date(news.publishedAt).toISOString().slice(0, 16) : '',
-        image: news.image || ''
+        image: news.image || '',
+        videoUrl: news.videoUrl || ''
       }
       
       setFormData(formDataToSet)
+      if (news.videoUrl) {
+        setVideoPreview(news.videoUrl)
+      }
     } catch (error) {
       console.error('Failed to fetch news:', error)
     }
@@ -170,6 +178,51 @@ export default function EditNewsPage({ params }: { params: Promise<{ id: string 
     }
   }
 
+  const uploadVideo = async () => {
+    if (!videoFile) return null
+    
+    setUploading(true)
+    try {
+      const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+      const totalChunks = Math.ceil(videoFile.size / chunkSize);
+      const filename = `${Date.now()}-${videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, videoFile.size);
+        const chunk = videoFile.slice(start, end);
+        
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(chunk);
+        });
+        
+        const chunkData = await base64Promise;
+
+        const res = await fetch('/api/upload/video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            chunkData, 
+            filename,
+            chunkIndex: i,
+            totalChunks
+          })
+        });
+
+        if (!res.ok) return null;
+      }
+
+      return `/uploads/videos/${filename}`;
+    } catch (error) {
+      console.error('Upload error:', error)
+      return null
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     if (['headline', 'summary', 'explanation', 'fullArticleLink'].includes(name)) {
@@ -240,6 +293,16 @@ export default function EditNewsPage({ params }: { params: Promise<{ id: string 
 
     setLoading(true)
     try {
+      // Upload video if new file selected
+      let uploadedVideoUrl = formData.videoUrl
+      if (videoFile) {
+        uploadedVideoUrl = await uploadVideo() || formData.videoUrl
+        if (videoFile && !uploadedVideoUrl) {
+          alert('Failed to upload video')
+          setLoading(false)
+          return
+        }
+      }
       const langMap: any = { 'EN': 'english', 'HIN': 'hindi', 'BEN': 'bengali' }
       
       // Build translations object with lowercase language names
@@ -262,6 +325,7 @@ export default function EditNewsPage({ params }: { params: Promise<{ id: string 
         summary: formData.translations[formData.languages[0]]?.summary || formData.summary,
         explanation: formData.translations[formData.languages[0]]?.explanation || formData.explanation,
         image: formData.image,
+        videoUrl: uploadedVideoUrl,
         category: formData.category,
         tags: formData.tags,
         languages: languageNames,
@@ -623,6 +687,36 @@ export default function EditNewsPage({ params }: { params: Promise<{ id: string 
                   onChange={handleChange}
                   className={styles.input}
                 />
+              </div>
+
+              <div className={styles.mt16}>
+                <label className={styles.label}>Video (Optional)</label>
+                {uploading && <div style={{color: 'blue', marginBottom: '8px'}}>Uploading video...</div>}
+                {videoFile && <div style={{color: 'green', marginBottom: '8px'}}>New video selected: {videoFile.name}</div>}
+                {videoPreview && (
+                  <video 
+                    src={videoPreview} 
+                    controls 
+                    style={{ width: '100%', marginBottom: '10px', borderRadius: '8px', maxHeight: '300px' }}
+                  />
+                )}
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setVideoFile(file)
+                      setVideoPreview(URL.createObjectURL(file))
+                    }
+                  }}
+                  className={styles.input}
+                />
+                {formData.videoUrl && !videoFile && (
+                  <div style={{ marginTop: '8px', color: '#666', fontSize: '12px' }}>
+                    Current video: {formData.videoUrl}
+                  </div>
+                )}
               </div>
             </div>
           </div>

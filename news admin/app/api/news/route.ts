@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
       summary: data.summary || '',
       explanation: data.explanation || '',
       image: data.image || '',
+      videoUrl: data.videoUrl || '',
       category: data.category,
       tags: tagIds,
       status: data.status || 'draft',

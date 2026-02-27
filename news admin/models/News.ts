@@ -6,6 +6,7 @@ const NewsSchema = new mongoose.Schema({
   summary: { type: String },
   explanation: { type: String },
   image: { type: String },
+  videoUrl: { type: String },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
   tags: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tag' }],
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

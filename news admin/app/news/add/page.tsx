@@ -53,6 +53,10 @@ export default function AddNewsPage() {
     timestamp: '',
     image: ''
   })
+  const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [videoUrl, setVideoUrl] = useState('')
+  const [videoPreview, setVideoPreview] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   const translateText = async (text: string, targetLang: string) => {
     if (!text || text.trim() === '') return text
@@ -108,6 +112,51 @@ export default function AddNewsPage() {
         console.error('Upload error:', error)
         alert('Failed to upload image')
       }
+    }
+  }
+
+  const uploadVideo = async () => {
+    if (!videoFile) return null
+    
+    setUploading(true)
+    try {
+      const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+      const totalChunks = Math.ceil(videoFile.size / chunkSize);
+      const filename = `${Date.now()}-${videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, videoFile.size);
+        const chunk = videoFile.slice(start, end);
+        
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(chunk);
+        });
+        
+        const chunkData = await base64Promise;
+
+        const res = await fetch('/api/upload/video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            chunkData, 
+            filename,
+            chunkIndex: i,
+            totalChunks
+          })
+        });
+
+        if (!res.ok) return null;
+      }
+
+      return `/uploads/videos/${filename}`;
+    } catch (error) {
+      console.error('Upload error:', error)
+      return null
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -216,6 +265,16 @@ export default function AddNewsPage() {
 
     setLoading(true)
     try {
+      // Upload video if present
+      let uploadedVideoUrl = videoUrl
+      if (videoFile && !videoUrl) {
+        uploadedVideoUrl = await uploadVideo() || ''
+        if (videoFile && !uploadedVideoUrl) {
+          alert('Failed to upload video')
+          setLoading(false)
+          return
+        }
+      }
       const langMap: any = { 'EN': 'english', 'HIN': 'hindi', 'BEN': 'bengali' }
       
       // Build translations object with proper structure
@@ -242,6 +301,7 @@ export default function AddNewsPage() {
         summary: formData.translations[formData.languages[0] as keyof typeof formData.translations]?.summary || formData.summary,
         explanation: formData.translations[formData.languages[0] as keyof typeof formData.translations]?.explanation || formData.explanation,
         image: formData.image,
+        videoUrl: uploadedVideoUrl,
         category: formData.category,
         tags: formData.tags,
         languages: languageNames,
@@ -620,6 +680,31 @@ export default function AddNewsPage() {
                   onChange={handleChange}
                   className={styles.input}
                 />
+              </div>
+
+              <div className={styles.mt16}>
+                <label className={styles.label}>Upload Video (Optional)</label>
+                {uploading && <div style={{color: 'blue', marginBottom: '8px'}}>Uploading video...</div>}
+                {videoFile && <div style={{color: 'green', marginBottom: '8px'}}>Selected: {videoFile.name}</div>}
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setVideoFile(file)
+                      setVideoPreview(URL.createObjectURL(file))
+                    }
+                  }}
+                  className={styles.input}
+                />
+                {videoPreview && (
+                  <video 
+                    src={videoPreview} 
+                    controls 
+                    style={{width: '100%', marginTop: '10px', borderRadius: '8px'}} 
+                  />
+                )}
               </div>
             </div>
           </form>

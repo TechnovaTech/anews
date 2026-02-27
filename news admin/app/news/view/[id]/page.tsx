@@ -46,6 +46,15 @@ export default function ViewNewsPage({ params }: { params: Promise<{ id: string 
         <div className={styles.content}>
           <div className={styles.articleContainer}>
             {newsData.image && <img src={newsData.image} alt={newsData.title} className={styles.articleImage} />}
+            {newsData.videoUrl && (
+              <div style={{ marginTop: '20px' }}>
+                <video 
+                  src={newsData.videoUrl} 
+                  controls 
+                  style={{ width: '100%', maxHeight: '500px', borderRadius: '8px' }}
+                />
+              </div>
+            )}
             <h2 className={styles.articleHeadline}>{newsData.title}</h2>
             <p className={styles.articleSummary}>{newsData.summary}</p>
           </div>
