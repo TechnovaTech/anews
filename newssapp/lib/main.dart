@@ -1798,6 +1798,7 @@ class _VideoPageState extends State<_VideoPage> {
 
     return Stack(
       children: [
+        // Video Player
         Positioned.fill(
           child: AnimatedBuilder(
             animation: controller,
@@ -1816,6 +1817,8 @@ class _VideoPageState extends State<_VideoPage> {
             },
           ),
         ),
+        
+        // Gradient Overlay
         Positioned.fill(
           child: IgnorePointer(
             child: Container(
@@ -1835,6 +1838,7 @@ class _VideoPageState extends State<_VideoPage> {
             ),
           ),
         ),
+        
         // Top header (brand centered, back left, mute right)
         SafeArea(
           child: Padding(
@@ -1880,15 +1884,16 @@ class _VideoPageState extends State<_VideoPage> {
             ),
           ),
         ),
+        
         // Right side actions (vertical rail)
         Positioned(
           right: 12,
-          top: MediaQuery.of(context).size.height * 0.45,
+          bottom: 120,
           child: Column(
             children: [
               _CircleAction(
                 icon: _liked ? Icons.favorite : Icons.favorite_border,
-                label: _likeCount >= 1000 ? '${(_likeCount / 1000).toStringAsFixed(1)}k' : '$_likeCount',
+                label: _likeCount.toString(),
                 selected: _liked,
                 labelBelow: true,
                 onTap: () async {
@@ -1896,14 +1901,14 @@ class _VideoPageState extends State<_VideoPage> {
                     _liked = !_liked;
                     _likeCount += _liked ? 1 : -1;
                   });
-                  // Note: Add API call here when reelId is available
-                  // await ApiService.likeReel(reelId, _liked);
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _CircleAction(
                 icon: _saved ? Icons.bookmark : Icons.bookmark_border,
+                label: '0',
                 selected: _saved,
+                labelBelow: true,
                 onTap: () {
                   setState(() {
                     _saved = !_saved;
@@ -1915,9 +1920,11 @@ class _VideoPageState extends State<_VideoPage> {
                   });
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _CircleAction(
                 icon: Icons.send,
+                label: '',
+                labelBelow: true,
                 onTap: () async {
                   final shareText = '${item.title}\n\nWatch on asiaze: ${item.url}';
                   await Share.share(
@@ -1929,110 +1936,301 @@ class _VideoPageState extends State<_VideoPage> {
             ],
           ),
         ),
+        
+        // Bottom content overlay (title, author, description)
         if (!_showDetails)
           Positioned(
-            left: 20,
-            bottom: 20,
-            child: GestureDetector(
-              onTap: () => setState(() => _showDetails = true),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      border: Border.all(color: Colors.white.withOpacity(0.5)),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Read More ↑',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+            left: 16,
+            right: 80,
+            bottom: 60,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 8,
                       ),
-                    ),
+                    ],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                
+                // Author and Date
+                Text(
+                  '${item.source.toUpperCase()} · ${item.timeAgo}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 8,
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 8),
+                
+                // Description preview
+                if (item.description.isNotEmpty)
+                  Text(
+                    item.description,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      height: 1.4,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+        
+        // Video progress bar and instruction at bottom
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _showDetails = !_showDetails;
+              });
+            },
+            child: Container(
+              color: Colors.black.withOpacity(0.3),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Progress bar
+                  AnimatedBuilder(
+                    animation: controller,
+                    builder: (context, _) {
+                      final position = controller.value.position;
+                      final duration = controller.value.duration;
+                      final progress = duration.inMilliseconds > 0
+                          ? position.inMilliseconds / duration.inMilliseconds
+                          : 0.0;
+                      
+                      return Row(
+                        children: [
+                          Text(
+                            _fmt(position),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: Colors.white.withOpacity(0.3),
+                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.red),
+                              minHeight: 3,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _fmt(duration),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  
+                  // Instruction text
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Swipe up ↑   ',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
+                      ),
+                      Text(
+                        'Tap to ${_showDetails ? 'close' : 'read more'} detail',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
+        ),
+        
+        // Details drawer/bottom sheet
         if (_showDetails)
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                  ),
-                  padding: const EdgeInsets.all(25),
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.7,
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: red,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                item.category,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+            child: GestureDetector(
+              onTap: () {}, // Prevent closing when tapping inside
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.85),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    ),
+                    padding: const EdgeInsets.all(20),
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.6,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header with close button
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: red,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  item.category,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ),
-                            GestureDetector(
-                              onTap: () => setState(() => _showDetails = false),
-                              child: const Icon(Icons.close, color: Colors.white, size: 24),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          item.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
+                              GestureDetector(
+                                onTap: () => setState(() => _showDetails = false),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'By ${item.source} • ${item.timeAgo}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        if (item.description.isNotEmpty)
+                          const SizedBox(height: 16),
+                          
+                          // Title
                           Text(
-                            item.description,
+                            item.title,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 14,
-                              height: 1.6,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              height: 1.3,
                             ),
                           ),
-                      ],
+                          const SizedBox(height: 8),
+                          
+                          // Author and Date
+                          Text(
+                            'By ${item.source} • ${item.timeAgo}',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Summary/Caption heading
+                          const Text(
+                            'Summary',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          
+                          // Full description/caption from admin panel
+                          if (item.description.isNotEmpty)
+                            Text(
+                              item.description,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                height: 1.6,
+                              ),
+                            )
+                          else
+                            Text(
+                              'No summary available for this reel.',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.5),
+                                fontSize: 14,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          
+                          // Stats row
+                          Row(
+                            children: [
+                              Icon(Icons.favorite, color: red, size: 18),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$_likeCount likes',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              const Icon(Icons.visibility, color: Colors.white70, size: 18),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${item.views} views',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -2055,25 +2253,40 @@ class _CircleAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final circle = Container(
-      width: 44,
-      height: 44,
+      width: 50,
+      height: 50,
       decoration: BoxDecoration(
-        color: selected ? AsiazeApp.primaryRed.withOpacity(0.85) : Colors.black.withOpacity(0.5),
+        color: selected ? AsiazeApp.primaryRed.withOpacity(0.85) : Colors.white.withOpacity(0.25),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white24),
+        border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
       ),
-      child: Icon(icon, color: Colors.white),
+      child: Icon(icon, color: Colors.white, size: 26),
     );
 
-    if (labelBelow && label != null) {
+    if (labelBelow) {
       return GestureDetector(
         onTap: onTap,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(width: 48, height: 48, child: Center(child: circle)),
-            const SizedBox(height: 6),
-            Text(label!, style: const TextStyle(color: Colors.white, fontSize: 12)),
+            circle,
+            if (label != null && label!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                label!,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black54,
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       );
@@ -2081,30 +2294,7 @@ class _CircleAction extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: SizedBox(
-        width: 48,
-        height: 48,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            circle,
-            if (label != null)
-              Positioned(
-                right: -6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.35),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: Text(label!, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                ),
-              ),
-          ],
-        ),
-      ),
+      child: circle,
     );
   }
 }
