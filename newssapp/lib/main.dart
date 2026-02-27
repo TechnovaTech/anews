@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
 import 'services/api_service.dart';
 import 'services/google_auth_service.dart';
 import 'services/facebook_auth_service.dart';
@@ -1918,10 +1919,10 @@ class _VideoPageState extends State<_VideoPage> {
               _CircleAction(
                 icon: Icons.send,
                 onTap: () async {
-                  await Clipboard.setData(ClipboardData(text: item.url));
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Link copied to clipboard')),
+                  final shareText = '${item.title}\n\nWatch on asiaze: ${item.url}';
+                  await Share.share(
+                    shareText,
+                    subject: item.title,
                   );
                 },
               ),
@@ -3801,8 +3802,11 @@ class NewsCard extends StatelessWidget {
                             const SizedBox(width: 8),
                             GestureDetector(
                               onTap: () async {
-                                await Clipboard.setData(ClipboardData(text: title));
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Link copied')));
+                                final shareText = '$title\n\nRead more on asiaze';
+                                await Share.share(
+                                  shareText,
+                                  subject: title,
+                                );
                               },
                               child: const Icon(Icons.share, color: Colors.white, size: 18),
                             ),
@@ -3975,9 +3979,10 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           IconButton(
             icon: const Icon(Icons.share, color: Colors.black),
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: widget.title));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Link copied')),
+              final shareText = '${widget.title}\n\n${widget.subtitle}\n\nRead more on asiaze';
+              await Share.share(
+                shareText,
+                subject: widget.title,
               );
             },
           ),
@@ -4105,9 +4110,10 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                         IconButton(
                           icon: const Icon(Icons.share, size: 32, color: Colors.black),
                           onPressed: () async {
-                            await Clipboard.setData(ClipboardData(text: widget.title));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Link copied')),
+                            final shareText = '${widget.title}\n\n${widget.subtitle}\n\nRead more on asiaze';
+                            await Share.share(
+                              shareText,
+                              subject: widget.title,
                             );
                           },
                         ),
@@ -4240,6 +4246,16 @@ class ExplainSheet extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.share),
+                      onPressed: () async {
+                        final shareText = '$title\n\n$summary\n\n$explanation\n\nRead more on asiaze';
+                        await Share.share(
+                          shareText,
+                          subject: title,
+                        );
+                      },
+                    ),
                     IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
