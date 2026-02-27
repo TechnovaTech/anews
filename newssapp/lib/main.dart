@@ -3043,22 +3043,34 @@ class FeedList extends StatefulWidget {
   State<FeedList> createState() => _FeedListState();
 }
 
-class _FeedListState extends State<FeedList> {
+class _FeedListState extends State<FeedList> with SingleTickerProviderStateMixin {
   List<dynamic> _news = [];
   bool _loading = true;
-  late PageController _pageController;
-  int _currentPage = 0;
+  int _currentIndex = 0;
+  double _dragOffset = 0.0;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.9);
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _animation = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    )..addListener(() {
+        setState(() {
+          _dragOffset = _animation.value;
+        });
+      });
     _fetchNews();
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -3101,6 +3113,64 @@ class _FeedListState extends State<FeedList> {
     }
   }
 
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _dragOffset -= details.primaryDelta!;
+      final screenHeight = MediaQuery.of(context).size.height;
+      _dragOffset = _dragOffset.clamp(-screenHeight, screenHeight);
+    });
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final velocity = details.primaryVelocity ?? 0;
+    
+    if (velocity < -500 || _dragOffset > screenHeight * 0.25) {
+      // Swipe up - go to next card
+      if (_currentIndex < _news.length - 1) {
+        _animation = Tween<double>(
+          begin: _dragOffset,
+          end: screenHeight,
+        ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
+        _animationController.forward(from: 0).then((_) {
+          setState(() {
+            _currentIndex++;
+            _dragOffset = 0.0;
+          });
+        });
+      } else {
+        _animateSnapBack();
+      }
+    } else if (velocity > 500 || _dragOffset < -screenHeight * 0.25) {
+      // Swipe down - go to previous card
+      if (_currentIndex > 0) {
+        _animation = Tween<double>(
+          begin: _dragOffset,
+          end: -screenHeight,
+        ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
+        _animationController.forward(from: 0).then((_) {
+          setState(() {
+            _currentIndex--;
+            _dragOffset = 0.0;
+          });
+        });
+      } else {
+        _animateSnapBack();
+      }
+    } else {
+      // Snap back
+      _animateSnapBack();
+    }
+  }
+
+  void _animateSnapBack() {
+    _animation = Tween<double>(
+      begin: _dragOffset,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
+    _animationController.forward(from: 0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageProvider>(context);
@@ -3122,59 +3192,58 @@ class _FeedListState extends State<FeedList> {
       );
     }
 
-    return PageView.builder(
-      controller: _pageController,
-      scrollDirection: Axis.vertical,
-      itemCount: _news.length,
-      onPageChanged: (index) {
-        setState(() {
-          _currentPage = index;
-        });
-      },
-      itemBuilder: (context, index) {
-        final article = _news[index];
-        final title = lang.getNewsContent(article, 'title');
-        final summary = lang.getNewsContent(article, 'summary');
-        final content = lang.getNewsContent(article, 'content');
-        final explanation = lang.getNewsContent(article, 'explanation');
-        
-        return AnimatedBuilder(
-          animation: _pageController,
-          builder: (context, child) {
-            double value = 1.0;
-            if (_pageController.position.haveDimensions) {
-              value = _pageController.page! - index;
-              value = (1 - (value.abs() * 0.3)).clamp(0.7, 1.0);
-            }
-            
-            return Center(
-              child: Transform(
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001)
-                  ..rotateX(value * 0.3 - 0.3),
-                alignment: Alignment.center,
-                child: Transform.scale(
-                  scale: value,
-                  child: Opacity(
-                    opacity: value,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                      child: NewsCard(
-                        imageUrl: article['image'] ?? 'asset:refranceimages/Group (16).png',
-                        title: title.isNotEmpty ? title : 'No Title',
-                        subtitle: summary.isNotEmpty ? summary : content,
-                        meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
-                        explanation: explanation,
-                        categoryId: article['category']?['_id']?.toString(),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return GestureDetector(
+      onVerticalDragUpdate: _onVerticalDragUpdate,
+      onVerticalDragEnd: _onVerticalDragEnd,
+      child: Stack(
+        children: [
+          // Current card - stays in place
+          if (_currentIndex < _news.length)
+            Positioned.fill(
+              child: _buildNewsCard(_currentIndex, lang),
+            ),
+          // Next card - slides up from bottom when swiping up
+          if (_currentIndex + 1 < _news.length && _dragOffset > 0)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              top: screenHeight - _dragOffset,
+              child: _buildNewsCard(_currentIndex + 1, lang),
+            ),
+          // Previous card - slides down from top when swiping down
+          if (_currentIndex > 0 && _dragOffset < 0)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: screenHeight + _dragOffset,
+              child: _buildNewsCard(_currentIndex - 1, lang),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewsCard(int index, LanguageProvider lang) {
+    final article = _news[index];
+    final title = lang.getNewsContent(article, 'title');
+    final summary = lang.getNewsContent(article, 'summary');
+    final content = lang.getNewsContent(article, 'content');
+    final explanation = lang.getNewsContent(article, 'explanation');
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: NewsCard(
+        imageUrl: article['image'] ?? 'asset:refranceimages/Group (16).png',
+        title: title.isNotEmpty ? title : 'No Title',
+        subtitle: summary.isNotEmpty ? summary : content,
+        meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
+        explanation: explanation,
+        categoryId: article['category']?['_id']?.toString(),
+      ),
     );
   }
 
@@ -3802,11 +3871,10 @@ class NewsCard extends StatelessWidget {
           height: screenHeight * 0.7,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
-              // Image section
+              // Image section - 60% of card
               Expanded(
-                flex: 6,
+                flex: 60,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -3866,20 +3934,18 @@ class NewsCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Content section
+              // Content section - 40% of card
               Expanded(
-                flex: 4,
-                child: Container(
+                flex: 40,
+                child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               title,
