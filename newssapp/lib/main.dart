@@ -3508,35 +3508,14 @@ class FeedList extends StatefulWidget {
   State<FeedList> createState() => _FeedListState();
 }
 
-class _FeedListState extends State<FeedList> with SingleTickerProviderStateMixin {
+class _FeedListState extends State<FeedList> {
   List<dynamic> _news = [];
   bool _loading = true;
-  int _currentIndex = 0;
-  double _dragOffset = 0.0;
-  late AnimationController _animationController;
-  late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    _animation = Tween<double>(begin: 0, end: 0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    )..addListener(() {
-        setState(() {
-          _dragOffset = _animation.value;
-        });
-      });
     _fetchNews();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
   }
 
   @override
@@ -3577,67 +3556,10 @@ class _FeedListState extends State<FeedList> with SingleTickerProviderStateMixin
     }
   }
 
-  void _onVerticalDragUpdate(DragUpdateDetails details) {
-    setState(() {
-      _dragOffset -= details.primaryDelta!;
-      final screenHeight = MediaQuery.of(context).size.height;
-      _dragOffset = _dragOffset.clamp(-screenHeight, screenHeight);
-    });
-  }
-
-  void _onVerticalDragEnd(DragEndDetails details) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final velocity = details.primaryVelocity ?? 0;
-    
-    if (velocity < -500 || _dragOffset > screenHeight * 0.25) {
-      // Swipe up - go to next card
-      if (_currentIndex < _news.length - 1) {
-        _animation = Tween<double>(
-          begin: _dragOffset,
-          end: screenHeight,
-        ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
-        _animationController.forward(from: 0).then((_) {
-          setState(() {
-            _currentIndex++;
-            _dragOffset = 0.0;
-          });
-        });
-      } else {
-        _animateSnapBack();
-      }
-    } else if (velocity > 500 || _dragOffset < -screenHeight * 0.25) {
-      // Swipe down - go to previous card
-      if (_currentIndex > 0) {
-        _animation = Tween<double>(
-          begin: _dragOffset,
-          end: -screenHeight,
-        ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
-        _animationController.forward(from: 0).then((_) {
-          setState(() {
-            _currentIndex--;
-            _dragOffset = 0.0;
-          });
-        });
-      } else {
-        _animateSnapBack();
-      }
-    } else {
-      // Snap back
-      _animateSnapBack();
-    }
-  }
-
-  void _animateSnapBack() {
-    _animation = Tween<double>(
-      begin: _dragOffset,
-      end: 0.0,
-    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
-    _animationController.forward(from: 0);
-  }
-
   @override
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageProvider>(context);
+    final red = AsiazeApp.primaryRed;
     
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -3656,60 +3578,146 @@ class _FeedListState extends State<FeedList> with SingleTickerProviderStateMixin
       );
     }
 
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return GestureDetector(
-      onVerticalDragUpdate: _onVerticalDragUpdate,
-      onVerticalDragEnd: _onVerticalDragEnd,
-      child: Stack(
-        children: [
-          // Current card - stays in place
-          if (_currentIndex < _news.length)
-            Positioned.fill(
-              child: _buildNewsCard(_currentIndex, lang),
+    // List layout instead of card swipe
+    return ListView.builder(
+      itemCount: _news.length,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemBuilder: (context, index) {
+        final article = _news[index];
+        final title = lang.getNewsContent(article, 'title');
+        final summary = lang.getNewsContent(article, 'summary');
+        final content = lang.getNewsContent(article, 'content');
+        final explanation = lang.getNewsContent(article, 'explanation');
+        final imageUrl = article['image'] ?? 'asset:refranceimages/Group (16).png';
+        final categoryName = article['category']?['name'] ?? 'News';
+        final hasVideo = article['videoUrl'] != null && article['videoUrl'].toString().isNotEmpty;
+        
+        return InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => ArticleDetailScreen(
+                  imageUrl: imageUrl,
+                  title: title.isNotEmpty ? title : 'No Title',
+                  subtitle: summary.isNotEmpty ? summary : content,
+                  meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
+                  explanation: explanation,
+                  categoryId: article['category']?['_id']?.toString(),
+                  videoUrl: article['videoUrl'],
+                ),
+              ),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade200),
+              ),
             ),
-          // Next card - slides up from bottom when swiping up
-          if (_currentIndex + 1 < _news.length && _dragOffset > 0)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              top: screenHeight - _dragOffset,
-              child: _buildNewsCard(_currentIndex + 1, lang),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Thumbnail with play button
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: imageUrl.startsWith('asset:')
+                          ? Image.asset(
+                              imageUrl.replaceFirst('asset:', ''),
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.network(
+                              imageUrl,
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            ),
+                    ),
+                    // Play button overlay
+                    if (hasVideo)
+                      Positioned.fill(
+                        child: Center(
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.play_arrow, color: Colors.white, size: 32),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Category
+                      Text(
+                        categoryName,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      // Title
+                      Text(
+                        title.isNotEmpty ? title : 'No Title',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                          height: 1.3,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      // Author and date
+                      Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.person, color: Colors.white, size: 12),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          // Previous card - slides down from top when swiping down
-          if (_currentIndex > 0 && _dragOffset < 0)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: screenHeight + _dragOffset,
-              child: _buildNewsCard(_currentIndex - 1, lang),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNewsCard(int index, LanguageProvider lang) {
-    final article = _news[index];
-    final title = lang.getNewsContent(article, 'title');
-    final summary = lang.getNewsContent(article, 'summary');
-    final content = lang.getNewsContent(article, 'content');
-    final explanation = lang.getNewsContent(article, 'explanation');
-    final videoUrl = article['videoUrl'];
-    
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: NewsCard(
-        imageUrl: article['image'] ?? 'asset:refranceimages/Group (16).png',
-        title: title.isNotEmpty ? title : 'No Title',
-        subtitle: summary.isNotEmpty ? summary : content,
-        meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
-        explanation: explanation,
-        categoryId: article['category']?['_id']?.toString(),
-        videoUrl: videoUrl,
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -4512,6 +4520,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   List<Map<String, dynamic>> _categories = [];
   bool _loadingOtherNews = false;
   bool _hasLoadedOtherNews = false;
+  VideoPlayerController? _videoController;
+  bool _isVideoInitialized = false;
 
   @override
   void initState() {
@@ -4520,13 +4530,53 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     // Load content immediately when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadOtherNews();
+      _initializeVideo();
     });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _videoController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeVideo() async {
+    if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty) {
+      try {
+        // Clean the video URL
+        String videoUrl = widget.videoUrl!.trim();
+        
+        // If URL is relative, make it absolute
+        if (videoUrl.startsWith('/')) {
+          videoUrl = 'https://asiaze.cloud$videoUrl';
+        } else if (!videoUrl.startsWith('http://') && !videoUrl.startsWith('https://')) {
+          videoUrl = 'https://asiaze.cloud/$videoUrl';
+        }
+        
+        print('Loading video from: $videoUrl');
+        
+        _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+        await _videoController!.initialize();
+        if (mounted) {
+          setState(() {
+            _isVideoInitialized = true;
+          });
+          _videoController!.play();
+          _videoController!.setLooping(true);
+        }
+      } catch (e) {
+        print('Error initializing video: $e');
+        // Video failed, just show image
+        if (mounted) {
+          setState(() {
+            _isVideoInitialized = false;
+            _videoController?.dispose();
+            _videoController = null;
+          });
+        }
+      }
+    }
   }
 
   void _onScroll() {
@@ -4569,8 +4619,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   Widget build(BuildContext context) {
     final red = AsiazeApp.primaryRed;
     final lang = Provider.of<LanguageProvider>(context);
+    final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final cardHeight = screenHeight * 0.7;
     
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -4580,13 +4630,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Main Article Card (70% of screen)
+              // Main Article Card - NEW LAYOUT
               Container(
-                height: cardHeight,
                 margin: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(0),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
@@ -4596,250 +4645,224 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                   ],
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Video/Image Section (60% of card)
-                    Expanded(
-                      flex: 60,
-                      child: Stack(
-                        children: [
-                          // Video player if video exists, otherwise show image
-                          if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty)
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                              child: Container(
-                                width: double.infinity,
-                                color: Colors.black,
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    // Video thumbnail (image)
-                                    if (widget.imageUrl.isNotEmpty)
-                                      widget.imageUrl.startsWith('asset:')
-                                          ? Image.asset(
-                                              widget.imageUrl.replaceFirst('asset:', ''),
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Image.network(
-                                              widget.imageUrl,
-                                              fit: BoxFit.cover,
+                    // Video/Image Section at Top
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(0),
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: screenHeight * 0.35,
+                            child: widget.videoUrl != null && widget.videoUrl!.isNotEmpty && _videoController != null
+                                ? Container(
+                                    color: Colors.black,
+                                    child: _isVideoInitialized
+                                        ? GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                if (_videoController!.value.isPlaying) {
+                                                  _videoController!.pause();
+                                                } else {
+                                                  _videoController!.play();
+                                                }
+                                              });
+                                            },
+                                            child: Stack(
+                                              fit: StackFit.expand,
+                                              children: [
+                                                VideoPlayer(_videoController!),
+                                                // Play/Pause overlay
+                                                if (!_videoController!.value.isPlaying)
+                                                  Center(
+                                                    child: Container(
+                                                      width: 70,
+                                                      height: 70,
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.black.withOpacity(0.6),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                      child: const Icon(Icons.play_arrow, color: Colors.white, size: 45),
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
-                                    // Play button overlay
-                                    Center(
-                                      child: Container(
-                                        width: 70,
-                                        height: 70,
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.6),
-                                          shape: BoxShape.circle,
+                                          )
+                                        : Stack(
+                                            fit: StackFit.expand,
+                                            children: [
+                                              // Video thumbnail while loading
+                                              if (widget.imageUrl.isNotEmpty)
+                                                widget.imageUrl.startsWith('asset:')
+                                                    ? Image.asset(
+                                                        widget.imageUrl.replaceFirst('asset:', ''),
+                                                        fit: BoxFit.cover,
+                                                      )
+                                                    : Image.network(
+                                                        widget.imageUrl,
+                                                        fit: BoxFit.cover,
+                                                      ),
+                                              // Loading indicator
+                                              const Center(
+                                                child: CircularProgressIndicator(color: Colors.white),
+                                              ),
+                                            ],
+                                          ),
+                                  )
+                                : widget.imageUrl.startsWith('asset:')
+                                    ? Image.asset(
+                                        widget.imageUrl.replaceFirst('asset:', ''),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Image.network(
+                                        widget.imageUrl,
+                                        fit: BoxFit.cover,
+                                      ),
+                          ),
+                        ),
+                        
+                        // Back button overlay
+                        Positioned(
+                          top: 12,
+                          left: 12,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_back, color: Colors.white),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // Title and Content Section Below Image
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title
+                          Text(
+                            widget.title,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              height: 1.3,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          // Full Article Content
+                          Text(
+                            widget.explanation,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade800,
+                              height: 1.6,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Action Buttons Row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Bookmark Icon
+                              ValueListenableBuilder<List<SavedArticle>>(
+                                valueListenable: SavedArticlesStore.saved,
+                                builder: (context, saved, _) {
+                                  final isSaved = saved.any((e) => e.title == widget.title);
+                                  return IconButton(
+                                    icon: Icon(
+                                      isSaved ? Icons.bookmark : Icons.bookmark_border,
+                                      size: 32,
+                                      color: Colors.black,
+                                    ),
+                                    onPressed: () {
+                                      SavedArticlesStore.toggle(SavedArticle(
+                                        image: widget.imageUrl,
+                                        title: widget.title,
+                                        subtitle: widget.subtitle,
+                                        meta: widget.meta,
+                                      ));
+                                    },
+                                  );
+                                },
+                              ),
+                              
+                              // Read More Button
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (context) => ExplainSheet(
+                                          title: widget.title,
+                                          summary: widget.subtitle,
+                                          explanation: widget.explanation,
                                         ),
-                                        child: const Icon(Icons.play_arrow, color: Colors.white, size: 45),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.grey.shade400,
+                                      foregroundColor: Colors.black,
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    // Tap to play
-                                    Positioned.fill(
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap: () {
-                                            // TODO: Implement video player
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Video player coming soon')),
-                                            );
-                                          },
-                                        ),
+                                    child: const Text(
+                                      'Read More',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
-                            )
-                          else
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                              child: widget.imageUrl.startsWith('asset:')
-                                  ? Image.asset(
-                                      widget.imageUrl.replaceFirst('asset:', ''),
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Image.network(
-                                      widget.imageUrl,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                    ),
-                            ),
-                          // Back button overlay
-                          Positioned(
-                            top: 12,
-                            left: 12,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.5),
-                                shape: BoxShape.circle,
+                              
+                              // Share Icon
+                              IconButton(
+                                icon: const Icon(Icons.share, size: 32, color: Colors.black),
+                                onPressed: () async {
+                                  final shareText = '${widget.title}\n\n${widget.subtitle}\n\nRead more on asiaze';
+                                  await Share.share(
+                                    shareText,
+                                    subject: widget.title,
+                                  );
+                                },
                               ),
-                              child: IconButton(
-                                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                                onPressed: () => Navigator.pop(context),
-                              ),
+                            ],
+                          ),
+                          
+                          // Up Arrow for Scroll Indicator
+                          Center(
+                            child: IconButton(
+                              icon: Icon(Icons.keyboard_arrow_up, size: 32, color: Colors.grey.shade600),
+                              onPressed: () {
+                                _scrollController.animateTo(
+                                  _scrollController.position.maxScrollExtent,
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOut,
+                                );
+                              },
                             ),
                           ),
                         ],
                       ),
                     ),
-                    // Content Section (40% of card)
-                    Expanded(
-                      flex: 40,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: SingleChildScrollView(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.title,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.3,
-                                        color: Colors.black,
-                                      ),
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      widget.subtitle,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade700,
-                                        height: 1.4,
-                                      ),
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      widget.meta,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   ],
-                ),
-              ),
-              
-              // Bottom Actions Row
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Bookmark Icon
-                    ValueListenableBuilder<List<SavedArticle>>(
-                      valueListenable: SavedArticlesStore.saved,
-                      builder: (context, saved, _) {
-                        final isSaved = saved.any((e) => e.title == widget.title);
-                        return IconButton(
-                          icon: Icon(
-                            isSaved ? Icons.bookmark : Icons.bookmark_border,
-                            size: 28,
-                            color: Colors.black,
-                          ),
-                          onPressed: () {
-                            SavedArticlesStore.toggle(SavedArticle(
-                              image: widget.imageUrl,
-                              title: widget.title,
-                              subtitle: widget.subtitle,
-                              meta: widget.meta,
-                            ));
-                          },
-                        );
-                      },
-                    ),
-                    
-                    // Read More Button
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: ElevatedButton(
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (context) => ExplainSheet(
-                                title: widget.title,
-                                summary: widget.subtitle,
-                                explanation: widget.explanation,
-                              ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: red,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Read More',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    // Share Icon
-                    IconButton(
-                      icon: const Icon(Icons.share, size: 28, color: Colors.black),
-                      onPressed: () async {
-                        final shareText = '${widget.title}\n\n${widget.subtitle}\n\nRead more on asiaze';
-                        await Share.share(
-                          shareText,
-                          subject: widget.title,
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Scroll Indicator
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade600, size: 20),
-                      Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade600, size: 20),
-                      const SizedBox(height: 4),
-                      Text(
-                        'next',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
               
@@ -4879,6 +4902,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                     final explanation = lang.getNewsContent(article, 'explanation');
                     final imageUrl = article['image'] ?? 'asset:refranceimages/Group (16).png';
                     final categoryName = article['category']?['name'] ?? 'News';
+                    final hasVideo = article['videoUrl'] != null && article['videoUrl'].toString().isNotEmpty;
                     
                     return InkWell(
                       onTap: () {
@@ -4897,7 +4921,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                         );
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           border: Border(
@@ -4905,49 +4929,98 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                           ),
                         ),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Small thumbnail
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: imageUrl.startsWith('asset:')
-                                  ? Image.asset(
-                                      imageUrl.replaceFirst('asset:', ''),
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Image.network(
-                                      imageUrl,
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.cover,
+                            // Thumbnail with play button
+                            Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: imageUrl.startsWith('asset:')
+                                      ? Image.asset(
+                                          imageUrl.replaceFirst('asset:', ''),
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image.network(
+                                          imageUrl,
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                        ),
+                                ),
+                                // Play button overlay
+                                if (hasVideo)
+                                  Positioned.fill(
+                                    child: Center(
+                                      child: Container(
+                                        width: 50,
+                                        height: 50,
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.play_arrow, color: Colors.white, size: 32),
+                                      ),
                                     ),
+                                  ),
+                              ],
                             ),
                             const SizedBox(width: 12),
-                            // Title and category
+                            // Content
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    title.isNotEmpty ? title : 'No Title',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black,
-                                      height: 1.3,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 6),
+                                  // Category
                                   Text(
                                     categoryName,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: red,
+                                      color: Colors.grey.shade600,
                                       fontWeight: FontWeight.w500,
                                     ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  // Title
+                                  Text(
+                                    title.isNotEmpty ? title : 'No Title',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.black,
+                                      height: 1.3,
+                                    ),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // Author and date
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 20,
+                                        height: 20,
+                                        decoration: BoxDecoration(
+                                          color: red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.person, color: Colors.white, size: 12),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
