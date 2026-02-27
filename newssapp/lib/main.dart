@@ -2805,13 +2805,21 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _allCategories = [];
-  List<Map<String, dynamic>> _userCategories = [];
   bool _loading = true;
+  late PageController _pageController;
+  int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     _fetchCategories();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchCategories() async {
@@ -2845,128 +2853,163 @@ class _HomeScreenState extends State<HomeScreen> {
       ..._allCategories,
     ];
     
-    return DefaultTabController(
-      length: displayCategories.length,
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              Text(
-                'asiaze',
-                style: TextStyle(
-                  color: red,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Text(
+              'asiaze',
+              style: TextStyle(
+                color: red,
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
               ),
-              const SizedBox(height: 8),
-              Material(
-                color: Colors.white,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const StoryGridScreen()),
-                          );
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 12),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: red,
-                            borderRadius: BorderRadius.circular(16),
+            ),
+            const SizedBox(height: 8),
+            // Category indicator with Stories button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const StoryGridScreen()),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: red,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.auto_stories, color: Colors.white, size: 16),
+                          const SizedBox(width: 4),
+                          const Text(
+                            'Stories',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.auto_stories, color: Colors.white, size: 16),
-                              const SizedBox(width: 4),
-                              const Text(
-                                'Stories',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        ],
                       ),
-                      Expanded(
-                        child: TabBar(
-                          isScrollable: true,
-                          tabAlignment: TabAlignment.start,
-                          dividerColor: Colors.transparent,
-                          labelColor: red,
-                          unselectedLabelColor: Colors.black87,
-                          indicatorColor: red,
-                          labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-                          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
-                          indicatorSize: TabBarIndicatorSize.label,
-                          indicatorWeight: 3,
-                          labelPadding: const EdgeInsets.only(right: 16),
-                          tabs: displayCategories.map((cat) {
-                            final isTranslated = cat['isTranslated'] == true;
-                            final text = isTranslated ? cat['name'].toString() : lang.getCategoryLabel(cat);
-                            return Tab(text: text);
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Container(
-                  width: double.infinity,
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: red,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      lang.translate('breaking_news'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
-                      textAlign: TextAlign.left,
                     ),
                   ),
+                  Expanded(
+                    child: SizedBox(
+                      height: 40,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: displayCategories.length,
+                        itemBuilder: (context, index) {
+                          final cat = displayCategories[index];
+                          final isTranslated = cat['isTranslated'] == true;
+                          final text = isTranslated ? cat['name'].toString() : lang.getCategoryLabel(cat);
+                          final isActive = _currentPage == index;
+                          
+                          return GestureDetector(
+                            onTap: () {
+                              _pageController.animateToPage(
+                                index,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isActive ? red : Colors.transparent,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isActive ? red : Colors.grey.shade300,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  text,
+                                  style: TextStyle(
+                                    color: isActive ? Colors.white : Colors.black87,
+                                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Breaking news banner
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Container(
+                width: double.infinity,
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: red,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    lang.translate('breaking_news'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.left,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: TabBarView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: displayCategories.map((cat) {
-                    final catName = cat['name'].toString();
-                    return FeedList(
-                      categoryName: catName,
-                      categoryId: cat['_id']?.toString(),
-                    );
-                  }).toList(),
-                ),
+            ),
+            const SizedBox(height: 8),
+            // Swipeable category pages
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                itemCount: displayCategories.length,
+                itemBuilder: (context, index) {
+                  final cat = displayCategories[index];
+                  final catName = cat['name'].toString();
+                  return FeedList(
+                    categoryName: catName,
+                    categoryId: cat['_id']?.toString(),
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
