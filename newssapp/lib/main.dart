@@ -1004,35 +1004,45 @@ class MainNav extends StatefulWidget {
 }
 
 class _MainNavState extends State<MainNav> {
-  int _index = 1; // default to Home
+  int _index = 0; // default to Home
 
   final _pages = const [
-    SearchScreen(),
     HomeScreen(),
-    ProfileScreen(),
     VideosScreen(),
+    StoryGridScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     final red = AsiazeApp.primaryRed;
+    final lang = Provider.of<LanguageProvider>(context);
     return Scaffold(
       body: _pages[_index],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         elevation: 8,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
         selectedItemColor: red,
         unselectedItemColor: Colors.black87,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.videocam), label: ''),
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+        items: [
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.home),
+            label: lang.translate('my_feed'),
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.videocam),
+            label: lang.translate('reels'),
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.auto_stories),
+            label: lang.translate('story'),
+          ),
         ],
       ),
     );
@@ -2858,99 +2868,106 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 12),
-            Text(
-              'asiaze',
-              style: TextStyle(
-                color: red,
-                fontSize: 32,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Category indicator with Stories button
+            // Top bar: Profile (left) - Logo (center) - Search (right)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Profile button
                   GestureDetector(
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const StoryGridScreen()),
+                        MaterialPageRoute(builder: (_) => const ProfileScreen()),
                       );
                     },
                     child: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
-                        color: red,
-                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.grey.shade200,
+                        shape: BoxShape.circle,
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.auto_stories, color: Colors.white, size: 16),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'Stories',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: const Icon(Icons.person, color: Colors.black87, size: 24),
                     ),
                   ),
-                  Expanded(
-                    child: SizedBox(
+                  // Logo
+                  Text(
+                    'asiaze',
+                    style: TextStyle(
+                      color: red,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  // Search button
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SearchScreen()),
+                      );
+                    },
+                    child: Container(
+                      width: 40,
                       height: 40,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: displayCategories.length,
-                        itemBuilder: (context, index) {
-                          final cat = displayCategories[index];
-                          final isTranslated = cat['isTranslated'] == true;
-                          final text = isTranslated ? cat['name'].toString() : lang.getCategoryLabel(cat);
-                          final isActive = _currentPage == index;
-                          
-                          return GestureDetector(
-                            onTap: () {
-                              _pageController.animateToPage(
-                                index,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 12),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isActive ? red : Colors.transparent,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: isActive ? red : Colors.grey.shade300,
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  text,
-                                  style: TextStyle(
-                                    color: isActive ? Colors.white : Colors.black87,
-                                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        shape: BoxShape.circle,
                       ),
+                      child: const Icon(Icons.search, color: Colors.black87, size: 24),
                     ),
                   ),
                 ],
+              ),
+            ),
+            // Category chips (without Stories button)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: SizedBox(
+                height: 40,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: displayCategories.length,
+                  itemBuilder: (context, index) {
+                    final cat = displayCategories[index];
+                    final isTranslated = cat['isTranslated'] == true;
+                    final text = isTranslated ? cat['name'].toString() : lang.getCategoryLabel(cat);
+                    final isActive = _currentPage == index;
+                    
+                    return GestureDetector(
+                      onTap: () {
+                        _pageController.animateToPage(
+                          index,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isActive ? red : Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isActive ? red : Colors.grey.shade300,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            text,
+                            style: TextStyle(
+                              color: isActive ? Colors.white : Colors.black87,
+                              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             const SizedBox(height: 8),
