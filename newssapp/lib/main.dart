@@ -3046,11 +3046,20 @@ class FeedList extends StatefulWidget {
 class _FeedListState extends State<FeedList> {
   List<dynamic> _news = [];
   bool _loading = true;
+  late PageController _pageController;
+  int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(viewportFraction: 0.9);
     _fetchNews();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -3113,8 +3122,15 @@ class _FeedListState extends State<FeedList> {
       );
     }
 
-    return ListView.builder(
+    return PageView.builder(
+      controller: _pageController,
+      scrollDirection: Axis.vertical,
       itemCount: _news.length,
+      onPageChanged: (index) {
+        setState(() {
+          _currentPage = index;
+        });
+      },
       itemBuilder: (context, index) {
         final article = _news[index];
         final title = lang.getNewsContent(article, 'title');
@@ -3122,16 +3138,41 @@ class _FeedListState extends State<FeedList> {
         final content = lang.getNewsContent(article, 'content');
         final explanation = lang.getNewsContent(article, 'explanation');
         
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: NewsCard(
-            imageUrl: article['image'] ?? 'asset:refranceimages/Group (16).png',
-            title: title.isNotEmpty ? title : 'No Title',
-            subtitle: summary.isNotEmpty ? summary : content,
-            meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
-            explanation: explanation,
-            categoryId: article['category']?['_id']?.toString(),
-          ),
+        return AnimatedBuilder(
+          animation: _pageController,
+          builder: (context, child) {
+            double value = 1.0;
+            if (_pageController.position.haveDimensions) {
+              value = _pageController.page! - index;
+              value = (1 - (value.abs() * 0.3)).clamp(0.7, 1.0);
+            }
+            
+            return Center(
+              child: Transform(
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001)
+                  ..rotateX(value * 0.3 - 0.3),
+                alignment: Alignment.center,
+                child: Transform.scale(
+                  scale: value,
+                  child: Opacity(
+                    opacity: value,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: NewsCard(
+                        imageUrl: article['image'] ?? 'asset:refranceimages/Group (16).png',
+                        title: title.isNotEmpty ? title : 'No Title',
+                        subtitle: summary.isNotEmpty ? summary : content,
+                        meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
+                        explanation: explanation,
+                        categoryId: article['category']?['_id']?.toString(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -3734,6 +3775,8 @@ class NewsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final red = AsiazeApp.primaryRed;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(
@@ -3754,121 +3797,162 @@ class NewsCard extends StatelessWidget {
         color: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                (imageUrl.startsWith('asset:')
-                    ? Image.asset(
-                        imageUrl.replaceFirst('asset:', ''),
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      )
-                    : Image.network(
-                        imageUrl,
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      )),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: red,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ValueListenableBuilder<List<SavedArticle>>(
-                      valueListenable: SavedArticlesStore.saved,
-                      builder: (context, saved, _) {
-                        final isSaved = saved.any((e) => e.title == title);
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                SavedArticlesStore.toggle(SavedArticle(
-                                  image: imageUrl,
-                                  title: title,
-                                  subtitle: subtitle,
-                                  meta: meta,
-                                ));
-                              },
-                              child: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border, color: Colors.white, size: 18),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () async {
-                                final shareText = '$title\n\nRead more on asiaze';
-                                await Share.share(
-                                  shareText,
-                                  subject: title,
-                                );
-                              },
-                              child: const Icon(Icons.share, color: Colors.white, size: 18),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    subtitle,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Text(
-                        meta,
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-                      ),
-                      const Spacer(),
-                      if (explanation != null && explanation!.isNotEmpty)
-                        TextButton.icon(
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (context) => ExplainSheet(
-                                title: title,
-                                summary: subtitle,
-                                explanation: explanation!,
-                              ),
+        margin: EdgeInsets.zero,
+        child: SizedBox(
+          height: screenHeight * 0.7,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Image section
+              Expanded(
+                flex: 6,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    (imageUrl.startsWith('asset:')
+                        ? Image.asset(
+                            imageUrl.replaceFirst('asset:', ''),
+                            fit: BoxFit.cover,
+                          )
+                        : Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                          )),
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: red,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ValueListenableBuilder<List<SavedArticle>>(
+                          valueListenable: SavedArticlesStore.saved,
+                          builder: (context, saved, _) {
+                            final isSaved = saved.any((e) => e.title == title);
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    SavedArticlesStore.toggle(SavedArticle(
+                                      image: imageUrl,
+                                      title: title,
+                                      subtitle: subtitle,
+                                      meta: meta,
+                                    ));
+                                  },
+                                  child: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border, color: Colors.white, size: 18),
+                                ),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: () async {
+                                    final shareText = '$title\n\nRead more on asiaze';
+                                    await Share.share(
+                                      shareText,
+                                      subject: title,
+                                    );
+                                  },
+                                  child: const Icon(Icons.share, color: Colors.white, size: 18),
+                                ),
+                              ],
                             );
                           },
-                          icon: const Icon(Icons.article_outlined, size: 16),
-                          label: const Text('Read More', style: TextStyle(fontSize: 12)),
-                          style: TextButton.styleFrom(
-                            foregroundColor: red,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          ),
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Content section
+              Expanded(
+                flex: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: Text(
+                                subtitle,
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 14,
+                                  height: 1.3,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              meta,
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (explanation != null && explanation!.isNotEmpty)
+                            TextButton.icon(
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (context) => ExplainSheet(
+                                    title: title,
+                                    summary: subtitle,
+                                    explanation: explanation!,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.article_outlined, size: 14),
+                              label: const Text('Read More', style: TextStyle(fontSize: 11)),
+                              style: TextButton.styleFrom(
+                                foregroundColor: red,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
