@@ -3837,7 +3837,7 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
                   
                   // Convert relative URL to absolute
                   if (thumbnailUrl.isNotEmpty && !thumbnailUrl.startsWith('http') && !thumbnailUrl.startsWith('asset:')) {
-                    thumbnailUrl = 'https://asiaze.cloud$thumbnailUrl';
+                    thumbnailUrl = '${ApiService.baseServerUrl}$thumbnailUrl';
                   }
                   
                   final title = reel['title'] ?? 'Reel';
