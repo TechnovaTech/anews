@@ -183,38 +183,15 @@ export default function EditNewsPage({ params }: { params: Promise<{ id: string 
     
     setUploading(true)
     try {
-      const chunkSize = 5 * 1024 * 1024; // 5MB chunks
-      const totalChunks = Math.ceil(videoFile.size / chunkSize);
-      const filename = `${Date.now()}-${videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * chunkSize;
-        const end = Math.min(start + chunkSize, videoFile.size);
-        const chunk = videoFile.slice(start, end);
-        
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve) => {
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(chunk);
-        });
-        
-        const chunkData = await base64Promise;
-
-        const res = await fetch('/api/upload/video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            chunkData, 
-            filename,
-            chunkIndex: i,
-            totalChunks
-          })
-        });
-
-        if (!res.ok) return null;
-      }
-
-      return `/uploads/videos/${filename}`;
+      const fd = new FormData()
+      fd.append('video', videoFile)
+      const res = await fetch('/api/upload/video', {
+        method: 'POST',
+        body: fd
+      })
+      if (!res.ok) return null
+      const data = await res.json()
+      return data.videoUrl || null
     } catch (error) {
       console.error('Upload error:', error)
       return null
