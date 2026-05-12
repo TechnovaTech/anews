@@ -3836,7 +3836,7 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
                   }
                   
                   // Convert relative URL to absolute
-                  if (thumbnailUrl.isNotEmpty && !thumbnailUrl.startsWith('http') && !thumbnailUrl.startsWith('asset:')) {
+                  if (thumbnailUrl.isNotEmpty && !thumbnailUrl.startsWith('http') && !thumbnailUrl.startsWith('asset:') && !thumbnailUrl.startsWith('data:')) {
                     thumbnailUrl = '${ApiService.baseServerUrl}$thumbnailUrl';
                   }
                   
@@ -3869,6 +3869,17 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
                               Image.asset(
                                 thumbnailUrl.replaceFirst('asset:', ''),
                                 fit: BoxFit.cover,
+                              )
+                            else if (thumbnailUrl.startsWith('data:image'))
+                              Image.memory(
+                                Uri.parse(thumbnailUrl).data!.contentAsBytes(),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey.shade800,
+                                    child: const Center(child: Icon(Icons.videocam, color: Colors.white, size: 40)),
+                                  );
+                                },
                               )
                             else if (thumbnailUrl.isNotEmpty)
                               Image.network(
