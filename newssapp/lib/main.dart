@@ -3001,27 +3001,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with SingleTicker
                         ),
                       ),
                     ),
-                    if (mediaItems.length > 1)
-                      Positioned(
-                        top: 60,
-                        left: 0,
-                        right: 0,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            mediaItems.length,
-                            (i) => Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 2),
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: i == _currentMediaIndex ? Colors.white : Colors.white.withOpacity(0.5),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                    // dots removed
                     if (!_showDetails)
                       Positioned(
                         left: 20,
