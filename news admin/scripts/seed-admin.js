@@ -2,7 +2,7 @@ const { MongoClient } = require('mongodb');
 const bcrypt = require('bcryptjs');
 
 async function seedAdmin() {
-  const client = new MongoClient('mongodb://localhost:27017/asiazenews');
+  const client = new MongoClient('mongodb://dsatguru:vivekVOra32+@69.62.66.123:27017/dsatmain?authSource=admin');
   
   try {
     await client.connect();
