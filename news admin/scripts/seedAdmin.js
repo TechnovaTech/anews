@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const MONGODB_URI = 'mongodb://localhost:27017/asiazenews';
+const MONGODB_URI = 'mongodb://dsatguru:vivekVOra32+@69.62.66.123:27017/dsatmain?authSource=admin';
 
 const UserSchema = new mongoose.Schema({
   name: String,
