@@ -5493,9 +5493,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         
         // If URL is relative, make it absolute
         if (videoUrl.startsWith('/')) {
-          videoUrl = 'https://asiaze.cloud$videoUrl';
+          videoUrl = 'https://visoniq.info$videoUrl';
         } else if (!videoUrl.startsWith('http://') && !videoUrl.startsWith('https://')) {
-          videoUrl = 'https://asiaze.cloud/$videoUrl';
+          videoUrl = 'https://visoniq.info/$videoUrl';
         }
         
         print('Loading video from: $videoUrl');
