@@ -10,7 +10,16 @@ const AdvertisementSchema = new mongoose.Schema({
   },
   imageUrl: {
     type: String,
-    required: true,
+    default: '',
+  },
+  videoUrl: {
+    type: String,
+    default: '',
+  },
+  adType: {
+    type: String,
+    enum: ['image', 'video'],
+    default: 'image',
   },
   clickUrl: {
     type: String,

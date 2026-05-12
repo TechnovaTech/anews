@@ -3958,6 +3958,71 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
   }
 }
 
+// ── Ad Video Player Widget ────────────────────────────────────────
+class _AdVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+  const _AdVideoPlayer({required this.videoUrl});
+
+  @override
+  State<_AdVideoPlayer> createState() => _AdVideoPlayerState();
+}
+
+class _AdVideoPlayerState extends State<_AdVideoPlayer> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..initialize().then((_) {
+        if (mounted) setState(() => _initialized = true);
+        _controller.setLooping(true);
+        _controller.play();
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return Container(
+        color: Colors.black,
+        child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _controller.value.isPlaying ? _controller.pause() : _controller.play();
+        });
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: _controller.value.size.width,
+              height: _controller.value.size.height,
+              child: VideoPlayer(_controller),
+            ),
+          ),
+          if (!_controller.value.isPlaying)
+            const Center(
+              child: Icon(Icons.play_circle_fill, color: Colors.white, size: 60),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class FeedList extends StatefulWidget {
   final String categoryName;
   final String? categoryId;
@@ -4070,11 +4135,13 @@ class _FeedListState extends State<FeedList> {
         // ── Ad card ──────────────────────────────────────────────
         if (item['_isAd'] == true) {
           final adImageUrl = item['imageUrl']?.toString() ?? '';
+          final adVideoUrl = item['videoUrl']?.toString() ?? '';
           final adClickUrl = item['clickUrl']?.toString() ?? '';
           final adTitle = item['title']?.toString() ?? 'Advertisement';
+          final isVideoAd = item['adType'] == 'video' && adVideoUrl.isNotEmpty;
+
           return GestureDetector(
             onTap: () {
-              // Could open URL - for now just show snackbar
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Opening: $adClickUrl')),
               );
@@ -4100,16 +4167,23 @@ class _FeedListState extends State<FeedList> {
                             color: Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
-                            'Sponsored',
-                            style: TextStyle(fontSize: 11, color: Colors.grey),
-                          ),
+                          child: const Text('Sponsored', style: TextStyle(fontSize: 11, color: Colors.grey)),
                         ),
                       ],
                     ),
                   ),
-                  // Ad image
-                  if (adImageUrl.isNotEmpty)
+                  // Video Ad
+                  if (isVideoAd)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 200,
+                        child: _AdVideoPlayer(videoUrl: adVideoUrl),
+                      ),
+                    )
+                  // Image Ad
+                  else if (adImageUrl.isNotEmpty)
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
                       child: Image.network(
@@ -4126,10 +4200,7 @@ class _FeedListState extends State<FeedList> {
                     ),
                   Padding(
                     padding: const EdgeInsets.all(12),
-                    child: Text(
-                      adTitle,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
+                    child: Text(adTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
