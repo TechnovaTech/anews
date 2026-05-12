@@ -1,0 +1,197 @@
+.container {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+.main {
+  margin-left: 250px;
+  flex: 1;
+  padding: 40px;
+}
+.content {
+  background-color: white;
+  border-radius: 8px;
+  padding: 40px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+}
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 450px;
+  gap: 40px;
+}
+.formGroup {
+  margin-bottom: 24px;
+}
+.label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  font-size: 15px;
+  color: #333;
+}
+.input, .select, .textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  color: #666;
+}
+.input::placeholder, .textarea::placeholder {
+  color: #999;
+}
+.textarea {
+  min-height: 120px;
+  resize: vertical;
+  font-family: Arial, sans-serif;
+}
+.tagInputContainer { display:flex; gap:8px }
+.tagInput { flex:1; padding:10px; border:1px solid #e6e6e6; border-radius:6px }
+.addTagBtn { padding:10px 14px; background:#e31e3a; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px }
+.addTagBtn:hover { background:#c71830 }
+.dropdownBtn { padding:10px 14px; background:#666; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; min-width:40px }
+.dropdownBtn:hover { background:#555 }
+.tagDropdown { position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid #e6e6e6; border-radius:6px; max-height:250px; overflow-y:auto; z-index:1000; box-shadow:0 4px 12px rgba(0,0,0,0.15) }
+.tagDropdownItem { padding:12px 14px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:14px; transition:background 0.2s }
+.tagDropdownItem:hover { background:#f5f5f5 }
+.tagDropdownItem:last-child { border-bottom:none }
+.tagsContainer { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px }
+.tag { display:inline-flex; align-items:center; background:#e31e3a; color:#fff; padding:6px 10px; border-radius:16px; font-size:13px }
+.removeTagBtn { background:none; border:none; color:#fff; margin-left:8px; cursor:pointer; font-size:18px }
+.uploadBox {
+  border: 2px dashed #d0d0d0;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  background: #fafafa;
+}
+.uploadContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.uploadText {
+  color: #999;
+  font-size: 14px;
+}
+.videoPreview {
+  width: 100%;
+  height: 180px;
+  background: #f0f0f0;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.previewImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.thumbnailBox {
+  border: 2px dashed #d0d0d0;
+  border-radius: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  background: #fafafa;
+  cursor: pointer;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.uploadBtn {
+  width: 100%;
+  padding: 12px;
+  background: #e31e3a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 12px;
+}
+.uploadBtn:hover {
+  background: #c71830;
+}
+.uploadIcon {
+  font-size: 32px;
+  color: #e31e3a;
+  margin-bottom: 8px;
+}
+.thumbnailText {
+  color: #999;
+  font-size: 14px;
+}
+.toggleGroup {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.toggle {
+  width: 50px;
+  height: 26px;
+  background: #ccc;
+  border-radius: 13px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+.toggleActive {
+  background: #e31e3a;
+}
+.toggleCircle {
+  width: 22px;
+  height: 22px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: left 0.3s;
+}
+.toggleActive .toggleCircle {
+  left: 26px;
+}
+.buttonRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 1px solid #f0f0f0;
+}
+.cancelBtn {
+  padding: 12px 28px;
+  background: #9ca3af;
+  color: white;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+.draftBtn {
+  padding: 12px 28px;
+  background: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+.publishBtn {
+  padding: 12px 28px;
+  background: #e31e3a;
+  color: white;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}

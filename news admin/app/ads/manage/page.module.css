@@ -1,0 +1,167 @@
+.container {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.main {
+  flex: 1;
+  margin-left: 250px;
+  padding: 30px;
+}
+
+.content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.addBtn {
+  background-color: #dc143c;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.addBtn:hover {
+  background-color: #b01030;
+}
+
+.filterRow {
+  margin-bottom: 20px;
+}
+
+.select {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.loading,
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.empty p {
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.table th,
+.table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.table th {
+  background-color: #f8f8f8;
+  font-weight: 600;
+  color: #555;
+  font-size: 14px;
+}
+
+.table td {
+  font-size: 14px;
+  color: #333;
+}
+
+.adTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.thumbnail {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.badge {
+  background-color: #e5e5e5;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.statusActive {
+  color: #16a34a;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.statusInactive {
+  color: #dc2626;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.statusScheduled {
+  color: #ea580c;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.toggleBtn,
+.deleteBtn {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.toggleBtn {
+  background-color: #f0f0f0;
+}
+
+.toggleBtn:hover {
+  background-color: #e0e0e0;
+}
+
+.deleteBtn {
+  background-color: #fee;
+}
+
+.deleteBtn:hover {
+  background-color: #fdd;
+}

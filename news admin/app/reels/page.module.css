@@ -1,0 +1,67 @@
+.container { display:flex; min-height:100vh; font-family:Arial, sans-serif; background:#f5f5f5 }
+.main { margin-left:250px; flex:1; padding:20px }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px }
+.title { font-size:24px; font-weight:700 }
+.addBtn { background:#e31e3a; color:white; padding:12px 24px; border:none; border-radius:25px; cursor:pointer; font-weight:600; font-size:14px }
+.filters { display:flex; gap:12px; margin-bottom:20px }
+.search { flex:1; padding:12px 16px; border:1px solid #e0e0e0; border-radius:8px; font-size:14px }
+.select { padding:12px 16px; border:1px solid #e0e0e0; border-radius:8px; font-size:14px; background:white; cursor:pointer; min-width:120px }
+.content { background:white; border-radius:8px; padding:24px; box-shadow:0 2px 4px rgba(0,0,0,0.06); margin-bottom:20px }
+.table { width:100%; border-collapse:collapse }
+.table th { text-align:left; padding:16px; border-bottom:2px solid #e0e0e0; font-weight:600; font-size:14px; color:#333 }
+.table td { padding:16px; border-bottom:1px solid #f0f0f0; font-size:14px; color:#333 }
+.link { color:#007bff; text-decoration:none }
+.badge { background:#f0f0f0; padding:6px 12px; border-radius:4px; font-size:13px; display:inline-block }
+.statusPublished { background:#28a745; color:white; padding:6px 16px; border-radius:20px; font-size:13px; font-weight:500 }
+.statusDraft { background:#e31e3a; color:white; padding:6px 16px; border-radius:20px; font-size:13px; font-weight:500 }
+.iconBtn { background:none; border:none; cursor:pointer; font-size:18px; margin:0 4px }
+.bulkActions { display:flex; gap:12px; justify-content:flex-end }
+.publishBtn { background:#e31e3a; color:white; padding:12px 32px; border:none; border-radius:8px; cursor:pointer; font-weight:600; font-size:14px }
+.unpublishBtn { background:#f0f0f0; color:#333; padding:12px 32px; border:none; border-radius:8px; cursor:pointer; font-weight:600; font-size:14px }
+.deleteBtn { background:#f0f0f0; color:#333; padding:12px 32px; border:none; border-radius:8px; cursor:pointer; font-weight:600; font-size:14px }
+.modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; overflow-y:auto; padding:20px }
+.modalContent { background:white; border-radius:12px; padding:32px; width:500px; max-width:90% }
+.modalContentLarge { background:white; border-radius:12px; padding:40px; width:1100px; max-width:95%; max-height:90vh; overflow-y:auto }
+.modalTitle { font-size:22px; font-weight:700; margin-bottom:24px }
+.formGrid { display:grid; grid-template-columns:1fr 450px; gap:40px; margin-bottom:30px }
+.formGroup { margin-bottom:24px }
+.formGroup label { display:block; font-weight:600; margin-bottom:8px; font-size:14px }
+.formGroup input, .formGroup select { width:100%; padding:10px; border:1px solid #e0e0e0; border-radius:6px; font-size:14px }
+.label { display:block; margin-bottom:10px; font-weight:600; font-size:15px; color:#333 }
+.input, .select, .textarea { width:100%; padding:12px 14px; border:1px solid #e0e0e0; border-radius:6px; font-size:14px; background:white; color:#666 }
+.input::placeholder, .textarea::placeholder { color:#999 }
+.textarea { min-height:120px; resize:vertical; font-family:Arial, sans-serif }
+.tagsContainer { display:flex; flex-wrap:wrap; gap:10px; padding:12px; border:1px solid #e0e0e0; border-radius:6px; background:white }
+.tag { display:inline-block; background:#e8e8e8; color:#555; padding:6px 14px; border-radius:16px; font-size:13px }
+.uploadBox { border:2px dashed #d0d0d0; border-radius:8px; padding:20px; text-align:center; background:#fafafa }
+.uploadContent { display:flex; flex-direction:column; gap:16px }
+.uploadText { color:#999; font-size:14px }
+.videoPreview { width:100%; height:180px; background:#f0f0f0; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center }
+.previewPlaceholder { color:#999; font-size:14px }
+.thumbnailBox { border:2px dashed #d0d0d0; border-radius:8px; padding:40px 20px; text-align:center; background:#fafafa; cursor:pointer }
+.uploadIcon { font-size:32px; color:#e31e3a; margin-bottom:8px }
+.thumbnailText { color:#999; font-size:14px }
+.toggleGroup { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px }
+.toggleGroupInline { display:flex; flex-direction:column; gap:10px }
+.toggleRow { display:flex; gap:30px; margin-top:20px }
+.toggle { width:50px; height:26px; background:#ccc; border-radius:13px; position:relative; cursor:pointer; transition:background 0.3s }
+.toggleActive { background:#e31e3a }
+.toggleCircle { width:22px; height:22px; background:white; border-radius:50%; position:absolute; top:2px; left:2px; transition:left 0.3s }
+.toggleActive .toggleCircle { left:26px }
+.toggleRow { display:flex; gap:30px; margin-top:20px }
+.toggleGroupInline { display:flex; flex-direction:column; gap:10px }
+.videoPreview, .thumbnailPreview { width:100%; height:180px; background:#e8e8e8; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-bottom:12px }
+.previewPlaceholder { color:#666; font-size:14px }
+.replaceBtn { width:100%; padding:12px; background:#e31e3a; color:white; border:none; border-radius:24px; cursor:pointer; font-weight:600; font-size:14px; margin-bottom:20px }
+.buttonRow { display:flex; justify-content:flex-end; gap:12px; padding-top:30px; border-top:1px solid #f0f0f0 }
+.cancelBtnLarge { padding:12px 28px; background:#9ca3af; color:white; border:none; border-radius:24px; cursor:pointer; font-weight:600; font-size:14px }
+.draftBtn { padding:12px 28px; background:#6b7280; color:white; border:none; border-radius:24px; cursor:pointer; font-weight:600; font-size:14px }
+.publishBtnLarge { padding:12px 28px; background:#e31e3a; color:white; border:none; border-radius:24px; cursor:pointer; font-weight:600; font-size:14px }
+.updateBtnLarge { padding:12px 28px; background:#e31e3a; color:white; border:none; border-radius:24px; cursor:pointer; font-weight:600; font-size:14px }
+.updateBtnLarge { padding:12px 32px; background:#e31e3a; color:white; border:none; border-radius:24px; cursor:pointer; font-weight:600; font-size:14px }
+.replaceBtn { width:100%; padding:12px; background:#e31e3a; color:white; border:none; border-radius:24px; cursor:pointer; font-weight:600; font-size:14px; margin-bottom:20px }
+.videoPreview, .thumbnailPreview { width:100%; height:200px; background:#e8e8e8; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-bottom:12px }
+.previewPlaceholder { color:#666; font-size:16px; font-weight:500 }
+.modalButtons { display:flex; gap:12px; margin-top:24px; justify-content:flex-end }
+.cancelBtn { padding:10px 20px; background:#f0f0f0; border:none; border-radius:6px; cursor:pointer; font-weight:600 }
+.saveBtn { padding:10px 20px; background:#e31e3a; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600 }

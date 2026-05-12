@@ -1,0 +1,186 @@
+.container {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  padding: 30px;
+  position: relative;
+  margin-left: 250px;
+  width: calc(100% - 250px);
+}
+.backArrow {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  background: white;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.content {
+  display: grid;
+  grid-template-columns: 650px 1fr;
+  gap: 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding-top: 20px;
+}
+.videoSection {
+  display: flex;
+  justify-content: center;
+}
+.videoPlayer {
+  width: 375px;
+  height: 812px;
+  background: #000;
+  border-radius: 30px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+.videoIcons {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 15px;
+  z-index: 10;
+}
+.videoIcons span {
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+}
+.videoContent {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+.videoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.videoInfo {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  color: white;
+}
+.videoTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+.videoCaption {
+  font-size: 14px;
+  margin: 0 0 8px 0;
+  color: #ddd;
+}
+.videoMeta {
+  font-size: 12px;
+  color: #aaa;
+  margin: 0 0 12px 0;
+}
+.progressBar {
+  height: 3px;
+  background: #e31e3a;
+  width: 100%;
+  border-radius: 2px;
+}
+.metadataSection {
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.metadataTitle {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 30px 0;
+  color: #333;
+}
+.metadataItem {
+  margin-bottom: 24px;
+}
+.metadataLabel {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 8px;
+}
+.metadataValue {
+  font-size: 15px;
+  color: #666;
+  margin: 0;
+  line-height: 1.6;
+}
+.metadataLink {
+  font-size: 15px;
+  color: #e31e3a;
+  text-decoration: none;
+  font-weight: 500;
+}
+.metadataLink:hover {
+  text-decoration: underline;
+}
+.tags {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tag {
+  background: #e8e8e8;
+  color: #555;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.buttonRow {
+  display: flex;
+  gap: 12px;
+  margin-top: 40px;
+  justify-content: flex-end;
+}
+.publishBtn {
+  padding: 14px 32px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+}
+.publishBtn:hover {
+  background: #218838;
+}
+.editBtn {
+  padding: 14px 32px;
+  background: #e31e3a;
+  color: white;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+}
+.backBtn {
+  padding: 14px 32px;
+  background: #e8e8e8;
+  color: #333;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+}

@@ -1,0 +1,247 @@
+.container {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.main {
+  flex: 1;
+  padding: 24px;
+  margin-left: 250px;
+  width: calc(100% - 250px);
+}
+
+.header {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.settingsBtn {
+  padding: 10px 20px;
+  background: #DC143C;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settingsBtn:hover {
+  background: #b01030;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.statCard {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.statIcon {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.statValue {
+  font-size: 28px;
+  font-weight: 700;
+  color: #DC143C;
+  margin-bottom: 5px;
+}
+
+.statLabel {
+  font-size: 14px;
+  color: #666;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.header p {
+  color: #666;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.tableContainer {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead {
+  background: #f5f5f5;
+}
+
+.table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+}
+
+.table td {
+  padding: 12px 16px;
+  border-top: 1px solid #eee;
+}
+
+.balance {
+  font-weight: 600;
+  color: #DC143C;
+}
+
+.btnView {
+  padding: 6px 16px;
+  background: #DC143C;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btnView:hover {
+  background: #b01030;
+}
+
+.btnAdjust {
+  padding: 6px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 8px;
+}
+
+.btnAdjust:hover {
+  background: #0056b3;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 8px;
+  padding: 30px;
+  width: 500px;
+  max-width: 90%;
+}
+
+.modalContent h2 {
+  margin-bottom: 20px;
+  font-size: 22px;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.formGroup input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.modalButtons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.btnCancel {
+  padding: 10px 20px;
+  background: #f0f0f0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btnSave {
+  padding: 10px 20px;
+  background: #DC143C;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btnSave:hover {
+  background: #b01030;
+}
+
+.btnIncrease {
+  padding: 10px 20px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btnIncrease:hover {
+  background: #218838;
+}
+
+.btnDecrease {
+  padding: 10px 20px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btnDecrease:hover {
+  background: #c82333;
+}
