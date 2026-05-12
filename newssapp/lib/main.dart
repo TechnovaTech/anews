@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:video_player/video_player.dart';
@@ -2654,13 +2654,25 @@ class _StoryGridScreenState extends State<StoryGridScreen> {
                                 // Get first media item for thumbnail
                                 String imageUrl = '';
                                 final mediaItems = story['mediaItems'] as List<dynamic>? ?? [];
+                                
+                                // Find first IMAGE in mediaItems for thumbnail
+                                // If no image found, use first item (video thumbnail fallback)
                                 if (mediaItems.isNotEmpty) {
-                                  imageUrl = mediaItems[0]['url']?.toString() ?? '';
-                                } else {
+                                  // Try to find an image first
+                                  final imageItem = mediaItems.firstWhere(
+                                    (m) => m['type'] == 'image',
+                                    orElse: () => mediaItems[0],
+                                  );
+                                  imageUrl = imageItem['url']?.toString() ?? '';
+                                }
+                                
+                                // Fallback to story image field
+                                if (imageUrl.isEmpty) {
                                   imageUrl = story['image']?.toString() ?? '';
                                 }
                                 
-                                if (imageUrl.startsWith('/uploads/')) {
+                                // Fix relative URLs
+                                if (imageUrl.isNotEmpty && !imageUrl.startsWith('http') && !imageUrl.startsWith('asset:')) {
                                   imageUrl = '${ApiService.baseServerUrl}$imageUrl';
                                 }
                                 
