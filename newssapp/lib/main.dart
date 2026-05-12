@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:ui' as ui;
 import 'dart:convert';
+import 'dart:math' show pi;
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
@@ -1312,8 +1313,8 @@ class _SearchScreenState extends State<SearchScreen> {
                                 title: title.isNotEmpty ? title : 'No Title',
                                 subtitle: summary.isNotEmpty ? summary : content,
                                 meta: 'ASIAZE • ${formatPublishedDate(p['publishedAt'])}',
-                                explanation: explanation,
-                                categoryId: p['category']?['_id']?.toString(),
+                                allArticles: _results,
+                                articleIndex: i,
                               ),
                             );
                           },
@@ -3506,14 +3507,9 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => ArticleDetailScreen(
-                            imageUrl: imageUrl,
-                            title: title.isNotEmpty ? title : 'No Title',
-                            subtitle: summary.isNotEmpty ? summary : content,
-                            meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
-                            explanation: explanation,
-                            categoryId: article['category']?['_id']?.toString(),
-                            videoUrl: article['videoUrl'],
+                          builder: (context) => ArticlesFeedScreen(
+                            articles: _breakingNews,
+                            initialIndex: index,
                           ),
                         ),
                       );
@@ -3708,14 +3704,9 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => ArticleDetailScreen(
-                        imageUrl: imageUrl,
-                        title: title.isNotEmpty ? title : 'No Title',
-                        subtitle: summary.isNotEmpty ? summary : content,
-                        meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
-                        explanation: explanation,
-                        categoryId: article['category']?['_id']?.toString(),
-                        videoUrl: article['videoUrl'],
+                      builder: (context) => ArticlesFeedScreen(
+                        articles: _breakingNews,
+                        initialIndex: index,
                       ),
                     ),
                   );
@@ -4231,16 +4222,12 @@ class _FeedListState extends State<FeedList> {
         
         return InkWell(
           onTap: () {
+            final newsIndex = _news.indexOf(article);
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => ArticleDetailScreen(
-                  imageUrl: imageUrl,
-                  title: title.isNotEmpty ? title : 'No Title',
-                  subtitle: summary.isNotEmpty ? summary : content,
-                  meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
-                  explanation: explanation,
-                  categoryId: article['category']?['_id']?.toString(),
-                  videoUrl: article['videoUrl'],
+                builder: (context) => ArticlesFeedScreen(
+                  articles: _news,
+                  initialIndex: newsIndex < 0 ? 0 : newsIndex,
                 ),
               ),
             );
@@ -5245,37 +5232,30 @@ class NewsCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final String meta;
-  final String? explanation;
-  final String? categoryId;
-  final String? videoUrl;
+  final List<dynamic> allArticles;
+  final int articleIndex;
+
   const NewsCard({
     super.key,
     required this.imageUrl,
     required this.title,
     required this.subtitle,
     required this.meta,
-    this.explanation,
-    this.categoryId,
-    this.videoUrl,
+    required this.allArticles,
+    required this.articleIndex,
   });
 
   @override
   Widget build(BuildContext context) {
-    final red = AsiazeApp.primaryRed;
     final screenHeight = MediaQuery.of(context).size.height;
-    
+
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ArticleDetailScreen(
-              imageUrl: imageUrl,
-              title: title,
-              subtitle: subtitle,
-              meta: meta,
-              explanation: explanation ?? '',
-              categoryId: categoryId,
-              videoUrl: videoUrl,
+            builder: (_) => ArticlesFeedScreen(
+              articles: allArticles,
+              initialIndex: articleIndex,
             ),
           ),
         );
@@ -5291,147 +5271,25 @@ class NewsCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image section - 60% of card
               Expanded(
                 flex: 60,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    (imageUrl.startsWith('asset:')
-                        ? Image.asset(
-                            imageUrl.replaceFirst('asset:', ''),
-                            fit: BoxFit.cover,
-                          )
-                        : Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                          )),
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: red,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: ValueListenableBuilder<List<SavedArticle>>(
-                          valueListenable: SavedArticlesStore.saved,
-                          builder: (context, saved, _) {
-                            final isSaved = saved.any((e) => e.title == title);
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    SavedArticlesStore.toggle(SavedArticle(
-                                      image: imageUrl,
-                                      title: title,
-                                      subtitle: subtitle,
-                                      meta: meta,
-                                    ));
-                                  },
-                                  child: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border, color: Colors.white, size: 18),
-                                ),
-                                const SizedBox(width: 8),
-                                GestureDetector(
-                                  onTap: () async {
-                                    final shareText = '$title\n\nRead more on asiaze';
-                                    await Share.share(
-                                      shareText,
-                                      subject: title,
-                                    );
-                                  },
-                                  child: const Icon(Icons.share, color: Colors.white, size: 18),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                child: imageUrl.startsWith('asset:')
+                    ? Image.asset(imageUrl.replaceFirst('asset:', ''), fit: BoxFit.cover, width: double.infinity)
+                    : Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity,
+                        errorBuilder: (_, __, ___) => Image.asset('refranceimages/Group (16).png', fit: BoxFit.cover)),
               ),
-              // Content section - 40% of card
               Expanded(
                 flex: 40,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black,
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: Text(
-                                subtitle,
-                                style: TextStyle(
-                                  color: Colors.grey.shade700,
-                                  fontSize: 14,
-                                  height: 1.3,
-                                ),
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              meta,
-                              style: TextStyle(
-                                color: Colors.grey.shade500,
-                                fontSize: 11,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (explanation != null && explanation!.isNotEmpty)
-                            TextButton.icon(
-                              onPressed: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  backgroundColor: Colors.transparent,
-                                  builder: (context) => ExplainSheet(
-                                    title: title,
-                                    summary: subtitle,
-                                    explanation: explanation!,
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.article_outlined, size: 14),
-                              label: const Text('Read More', style: TextStyle(fontSize: 11)),
-                              style: TextButton.styleFrom(
-                                foregroundColor: red,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                            ),
-                        ],
-                      ),
+                      Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 8),
+                      Expanded(child: Text(subtitle, style: TextStyle(color: Colors.grey.shade700, fontSize: 14, height: 1.3), maxLines: 3, overflow: TextOverflow.ellipsis)),
+                      const SizedBox(height: 4),
+                      Text(meta, style: TextStyle(color: Colors.grey.shade500, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -5444,559 +5302,366 @@ class NewsCard extends StatelessWidget {
   }
 }
 
-// ---------------- Article Detail Screen ----------------
-class ArticleDetailScreen extends StatefulWidget {
-  final String imageUrl;
-  final String title;
-  final String subtitle;
-  final String meta;
-  final String explanation;
-  final String? categoryId;
-  final String? videoUrl;
+// ---------------- Articles Feed Screen (vertical 3D scroll) ----------------
+class ArticlesFeedScreen extends StatefulWidget {
+  final List<dynamic> articles;
+  final int initialIndex;
 
-  const ArticleDetailScreen({
+  const ArticlesFeedScreen({
     super.key,
-    required this.imageUrl,
-    required this.title,
-    required this.subtitle,
-    required this.meta,
-    required this.explanation,
-    this.categoryId,
-    this.videoUrl,
+    required this.articles,
+    required this.initialIndex,
   });
 
   @override
-  State<ArticleDetailScreen> createState() => _ArticleDetailScreenState();
+  State<ArticlesFeedScreen> createState() => _ArticlesFeedScreenState();
 }
 
-class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
-  final ScrollController _scrollController = ScrollController();
-  List<dynamic> _otherNews = [];
-  List<Map<String, dynamic>> _categories = [];
-  bool _loadingOtherNews = false;
-  bool _hasLoadedOtherNews = false;
-  VideoPlayerController? _videoController;
-  bool _isVideoInitialized = false;
+class _ArticlesFeedScreenState extends State<ArticlesFeedScreen> {
+  late PageController _pageController;
+  double _currentPage = 0;
+  final Map<int, VideoPlayerController> _videoControllers = {};
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    // Load content immediately when screen opens
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadOtherNews();
-      _initializeVideo();
-    });
+    _currentPage = widget.initialIndex.toDouble();
+    _pageController = PageController(initialPage: widget.initialIndex);
+    _pageController.addListener(_onScroll);
+    _initVideo(widget.initialIndex);
+    _initVideo(widget.initialIndex + 1);
+  }
+
+  void _onScroll() {
+    final page = _pageController.page;
+    if (page != null && mounted) setState(() => _currentPage = page);
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
-    _videoController?.dispose();
+    _pageController.removeListener(_onScroll);
+    _pageController.dispose();
+    for (final c in _videoControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _initializeVideo() async {
-    if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty) {
-      try {
-        // Clean the video URL
-        String videoUrl = widget.videoUrl!.trim();
-        
-        // If URL is relative, make it absolute
-        if (videoUrl.startsWith('/')) {
-          videoUrl = 'https://visoniq.info$videoUrl';
-        } else if (!videoUrl.startsWith('http://') && !videoUrl.startsWith('https://')) {
-          videoUrl = 'https://visoniq.info/$videoUrl';
-        }
-        
-        print('Loading video from: $videoUrl');
-        
-        _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-        await _videoController!.initialize();
-        if (mounted) {
-          setState(() {
-            _isVideoInitialized = true;
-          });
-          _videoController!.play();
-          _videoController!.setLooping(true);
-        }
-      } catch (e) {
-        print('Error initializing video: $e');
-        // Video failed, just show image
-        if (mounted) {
-          setState(() {
-            _isVideoInitialized = false;
-            _videoController?.dispose();
-            _videoController = null;
-          });
-        }
-      }
+  Future<void> _initVideo(int index) async {
+    if (index < 0 || index >= widget.articles.length) return;
+    if (_videoControllers.containsKey(index)) return;
+    final rawUrl = widget.articles[index]['videoUrl']?.toString() ?? '';
+    if (rawUrl.isEmpty) return;
+    String url = rawUrl.trim();
+    if (url.startsWith('/')) {
+      url = 'https://visoniq.info$url';
+    } else if (!url.startsWith('http')) {
+      url = 'https://visoniq.info/$url';
     }
-  }
-
-  void _onScroll() {
-    // Content is already loaded on init, this is just a backup
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.3 && 
-        !_loadingOtherNews && !_hasLoadedOtherNews) {
-      _loadOtherNews();
-    }
-  }
-
-  Future<void> _loadOtherNews() async {
-    if (_loadingOtherNews || _hasLoadedOtherNews) return;
-    
-    setState(() => _loadingOtherNews = true);
-    
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final langCode = prefs.getString('language') ?? 'EN';
-      final language = langCode == 'HIN' ? 'hindi' : (langCode == 'BEN' ? 'bengali' : 'english');
-      
-      // Get categories and news
-      final categories = await ApiService.getCategories();
-      final allNews = await ApiService.getNews(language: language);
-      
-      // Filter out current article and get diverse news from different categories
-      final otherNews = allNews.where((news) => news['title'] != widget.title).toList();
-      
-      setState(() {
-        _categories = List<Map<String, dynamic>>.from(categories);
-        _otherNews = otherNews.take(10).toList(); // Limit to 10 articles
-        _loadingOtherNews = false;
-        _hasLoadedOtherNews = true;
-      });
-    } catch (e) {
-      setState(() => _loadingOtherNews = false);
+      final c = VideoPlayerController.networkUrl(Uri.parse(url));
+      _videoControllers[index] = c;
+      await c.initialize();
+      if (!mounted) return;
+      setState(() {});
+      if (_currentPage.round() == index) {
+        c.play();
+        c.setLooping(true);
+      }
+    } catch (_) {
+      _videoControllers.remove(index);
     }
+  }
+
+  void _onPageChanged(int index) {
+    for (final e in _videoControllers.entries) {
+      if (e.key != index) e.value.pause();
+    }
+    _videoControllers[index]?.play();
+    _initVideo(index + 1);
+    _initVideo(index - 1);
   }
 
   @override
   Widget build(BuildContext context) {
-    final red = AsiazeApp.primaryRed;
-    final lang = Provider.of<LanguageProvider>(context);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Main Article Card - NEW LAYOUT
-              Container(
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Video/Image Section at Top
-                    Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(0),
-                          child: SizedBox(
-                            width: double.infinity,
-                            height: screenHeight * 0.35,
-                            child: widget.videoUrl != null && widget.videoUrl!.isNotEmpty && _videoController != null
-                                ? Container(
-                                    color: Colors.black,
-                                    child: _isVideoInitialized
-                                        ? GestureDetector(
-                                            onTap: () {
-                                              setState(() {
-                                                if (_videoController!.value.isPlaying) {
-                                                  _videoController!.pause();
-                                                } else {
-                                                  _videoController!.play();
-                                                }
-                                              });
-                                            },
-                                            child: Stack(
-                                              fit: StackFit.expand,
-                                              children: [
-                                                VideoPlayer(_videoController!),
-                                                // Play/Pause overlay
-                                                if (!_videoController!.value.isPlaying)
-                                                  Center(
-                                                    child: Container(
-                                                      width: 70,
-                                                      height: 70,
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.black.withOpacity(0.6),
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                      child: const Icon(Icons.play_arrow, color: Colors.white, size: 45),
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                          )
-                                        : Stack(
-                                            fit: StackFit.expand,
-                                            children: [
-                                              // Video thumbnail while loading
-                                              if (widget.imageUrl.isNotEmpty)
-                                                widget.imageUrl.startsWith('asset:')
-                                                    ? Image.asset(
-                                                        widget.imageUrl.replaceFirst('asset:', ''),
-                                                        fit: BoxFit.cover,
-                                                      )
-                                                    : Image.network(
-                                                        widget.imageUrl,
-                                                        fit: BoxFit.cover,
-                                                      ),
-                                              // Loading indicator
-                                              const Center(
-                                                child: CircularProgressIndicator(color: Colors.white),
-                                              ),
-                                            ],
-                                          ),
-                                  )
-                                : widget.imageUrl.startsWith('asset:')
-                                    ? Image.asset(
-                                        widget.imageUrl.replaceFirst('asset:', ''),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Image.network(
-                                        widget.imageUrl,
-                                        fit: BoxFit.cover,
-                                      ),
-                          ),
-                        ),
-                        
-                        // Back button overlay
-                        Positioned(
-                          top: 12,
-                          left: 12,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Colors.white),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    // Title and Content Section Below Image
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Title
-                          Text(
-                            widget.title,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                              height: 1.3,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          
-                          // Full Article Content
-                          Text(
-                            widget.explanation,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade800,
-                              height: 1.6,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          // Action Buttons Row
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // Bookmark Icon
-                              ValueListenableBuilder<List<SavedArticle>>(
-                                valueListenable: SavedArticlesStore.saved,
-                                builder: (context, saved, _) {
-                                  final isSaved = saved.any((e) => e.title == widget.title);
-                                  return IconButton(
-                                    icon: Icon(
-                                      isSaved ? Icons.bookmark : Icons.bookmark_border,
-                                      size: 32,
-                                      color: Colors.black,
-                                    ),
-                                    onPressed: () {
-                                      SavedArticlesStore.toggle(SavedArticle(
-                                        image: widget.imageUrl,
-                                        title: widget.title,
-                                        subtitle: widget.subtitle,
-                                        meta: widget.meta,
-                                      ));
-                                    },
-                                  );
-                                },
-                              ),
-                              
-                              // Read More Button
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      showModalBottomSheet(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        backgroundColor: Colors.transparent,
-                                        builder: (context) => ExplainSheet(
-                                          title: widget.title,
-                                          summary: widget.subtitle,
-                                          explanation: widget.explanation,
-                                        ),
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.grey.shade400,
-                                      foregroundColor: Colors.black,
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Read More',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              
-                              // Share Icon
-                              IconButton(
-                                icon: const Icon(Icons.share, size: 32, color: Colors.black),
-                                onPressed: () async {
-                                  final shareText = '${widget.title}\n\n${widget.subtitle}\n\nRead more on asiaze';
-                                  await Share.share(
-                                    shareText,
-                                    subject: widget.title,
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                          
-                          // Up Arrow for Scroll Indicator
-                          Center(
-                            child: IconButton(
-                              icon: Icon(Icons.keyboard_arrow_up, size: 32, color: Colors.grey.shade600),
-                              onPressed: () {
-                                _scrollController.animateTo(
-                                  _scrollController.position.maxScrollExtent,
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeOut,
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Loading indicator
-              if (_loadingOtherNews)
-                const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              
-              // Recommendation Section (only section on scroll)
-              if (_hasLoadedOtherNews && _otherNews.isNotEmpty) ...[
-                Container(
-                  width: double.infinity,
-                  color: Colors.white,
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Recommendation',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: red,
-                    ),
-                  ),
-                ),
-                
-                // Recommendation List (small thumbnails)
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _otherNews.length,
-                  itemBuilder: (context, index) {
-                    final article = _otherNews[index];
-                    final title = lang.getNewsContent(article, 'title');
-                    final summary = lang.getNewsContent(article, 'summary');
-                    final content = lang.getNewsContent(article, 'content');
-                    final explanation = lang.getNewsContent(article, 'explanation');
-                    final imageUrl = article['image'] ?? 'asset:refranceimages/Group (16).png';
-                    final categoryName = article['category']?['name'] ?? 'News';
-                    final hasVideo = article['videoUrl'] != null && article['videoUrl'].toString().isNotEmpty;
-                    
-                    return InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => ArticleDetailScreen(
-                              imageUrl: imageUrl,
-                              title: title.isNotEmpty ? title : 'No Title',
-                              subtitle: summary.isNotEmpty ? summary : content,
-                              meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
-                              explanation: explanation,
-                              categoryId: article['category']?['_id']?.toString(),
-                              videoUrl: article['videoUrl'],
-                            ),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border(
-                            bottom: BorderSide(color: Colors.grey.shade200),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Thumbnail with play button
-                            Stack(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: imageUrl.startsWith('asset:')
-                                      ? Image.asset(
-                                          imageUrl.replaceFirst('asset:', ''),
-                                          width: 120,
-                                          height: 120,
-                                          fit: BoxFit.cover,
-                                        )
-                                      : Image.network(
-                                          imageUrl,
-                                          width: 120,
-                                          height: 120,
-                                          fit: BoxFit.cover,
-                                        ),
-                                ),
-                                // Play button overlay
-                                if (hasVideo)
-                                  Positioned.fill(
-                                    child: Center(
-                                      child: Container(
-                                        width: 50,
-                                        height: 50,
-                                        decoration: BoxDecoration(
-                                          color: Colors.red,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(Icons.play_arrow, color: Colors.white, size: 32),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(width: 12),
-                            // Content
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Category
-                                  Text(
-                                    categoryName,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  // Title
-                                  Text(
-                                    title.isNotEmpty ? title : 'No Title',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black,
-                                      height: 1.3,
-                                    ),
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  // Author and date
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 20,
-                                        height: 20,
-                                        decoration: BoxDecoration(
-                                          color: red,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(Icons.person, color: Colors.white, size: 12),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey.shade500,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                
-                const SizedBox(height: 20),
-              ]
-            ],
-          ),
-        ),
+      backgroundColor: Colors.black,
+      body: PageView.builder(
+        controller: _pageController,
+        scrollDirection: Axis.vertical,
+        itemCount: widget.articles.length,
+        onPageChanged: _onPageChanged,
+        itemBuilder: (context, index) {
+          final double value = index.toDouble() - _currentPage;
+          return Transform(
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001)
+              ..rotateX(value * (pi / 2)),
+            alignment: value > 0 ? Alignment.topCenter : Alignment.bottomCenter,
+            child: _ArticleFeedPage(
+              article: widget.articles[index],
+              videoController: _videoControllers[index],
+              onBack: () => Navigator.pop(context),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
+class _ArticleFeedPage extends StatelessWidget {
+  final dynamic article;
+  final VideoPlayerController? videoController;
+  final VoidCallback onBack;
+
+  const _ArticleFeedPage({
+    required this.article,
+    this.videoController,
+    required this.onBack,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context, listen: false);
+    final a = article as Map<String, dynamic>;
+    final title = lang.getNewsContent(a, 'title');
+    final summary = lang.getNewsContent(a, 'summary');
+    final content = lang.getNewsContent(a, 'content');
+    final explanation = lang.getNewsContent(a, 'explanation');
+    final body = summary.isNotEmpty ? summary : (content.isNotEmpty ? content : explanation);
+    final rawImage = a['image']?.toString() ?? '';
+    final imageUrl = rawImage.isNotEmpty ? rawImage : 'asset:refranceimages/Group (16).png';
+    final categoryName = a['category']?['name']?.toString() ?? '';
+    final publishedAt = a['publishedAt'];
+    final screenHeight = MediaQuery.of(context).size.height;
+    final topPad = MediaQuery.of(context).padding.top;
+    final isVideoReady = videoController != null && videoController!.value.isInitialized;
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.white,
+      child: Column(
+        children: [
+          SizedBox(
+            height: screenHeight * 0.52,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (isVideoReady)
+                  GestureDetector(
+                    onTap: () {
+                      if (videoController!.value.isPlaying) {
+                        videoController!.pause();
+                      } else {
+                        videoController!.play();
+                      }
+                    },
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      clipBehavior: Clip.hardEdge,
+                      child: SizedBox(
+                        width: videoController!.value.size.width,
+                        height: videoController!.value.size.height,
+                        child: VideoPlayer(videoController!),
+                      ),
+                    ),
+                  )
+                else
+                  _MediaImage(imageUrl: imageUrl),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.0, 0.25, 0.7, 1.0],
+                        colors: [
+                          Colors.black54,
+                          Colors.transparent,
+                          Colors.transparent,
+                          Colors.black54,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: topPad + 8,
+                  left: 14,
+                  child: GestureDetector(
+                    onTap: onBack,
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ),
+                if (categoryName.isNotEmpty)
+                  Positioned(
+                    top: topPad + 8,
+                    right: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AsiazeApp.primaryRed,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        categoryName,
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                if (isVideoReady && !videoController!.value.isPlaying)
+                  const Center(
+                    child: Icon(Icons.play_circle_fill, color: Colors.white70, size: 72),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ASIAZE  •  ${formatPublishedDate(publishedAt)}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500, letterSpacing: 0.3),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    title.isNotEmpty ? title : 'No Title',
+                    style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: Colors.black, height: 1.2),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: Text(
+                      body,
+                      style: TextStyle(fontSize: 14, color: Colors.grey.shade700, height: 1.55),
+                      overflow: TextOverflow.fade,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      // Save button
+                      ValueListenableBuilder<List<SavedArticle>>(
+                        valueListenable: SavedArticlesStore.saved,
+                        builder: (context, saved, _) {
+                          final isSaved = saved.any((e) => e.title == title);
+                          return GestureDetector(
+                            onTap: () {
+                              SavedArticlesStore.toggle(SavedArticle(
+                                image: imageUrl,
+                                title: title,
+                                subtitle: body,
+                                meta: 'ASIAZE  •  ${formatPublishedDate(publishedAt)}',
+                              ));
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isSaved ? AsiazeApp.primaryRed.withOpacity(0.1) : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                isSaved ? Icons.bookmark : Icons.bookmark_border,
+                                color: isSaved ? AsiazeApp.primaryRed : Colors.black87,
+                                size: 22,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      // Read More button
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => ExplainSheet(
+                                title: title,
+                                summary: body,
+                                explanation: explanation.isNotEmpty ? explanation : body,
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              'Read More',
+                              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Share button
+                      GestureDetector(
+                        onTap: () async {
+                          await Share.share(
+                            '$title\n\n$body\n\nRead more on asiaze',
+                            subject: title,
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.share, color: Colors.black87, size: 22),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MediaImage extends StatelessWidget {
+  final String imageUrl;
+  const _MediaImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl.startsWith('asset:')) {
+      return Image.asset(imageUrl.replaceFirst('asset:', ''), fit: BoxFit.cover, width: double.infinity, height: double.infinity);
+    }
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, __, ___) => Image.asset('refranceimages/Group (16).png', fit: BoxFit.cover),
+    );
+  }
+}
 // ---------------- Explain Sheet ----------------
 class ExplainSheet extends StatelessWidget {
   final String title;
@@ -6886,15 +6551,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         );
 
         if (article != null && mounted) {
-          final lang = Provider.of<LanguageProvider>(context, listen: false);
+          final articleIndex = news.indexOf(article);
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => ArticleDetailScreen(
-                imageUrl: article['image'] ?? 'asset:refranceimages/Group (16).png',
-                title: lang.getNewsContent(article, 'title'),
-                subtitle: lang.getNewsContent(article, 'summary'),
-                meta: 'ASIAZE • ${formatPublishedDate(article['publishedAt'])}',
-                explanation: lang.getNewsContent(article, 'explanation'),
+              builder: (_) => ArticlesFeedScreen(
+                articles: news,
+                initialIndex: articleIndex < 0 ? 0 : articleIndex,
               ),
             ),
           );
