@@ -32,6 +32,14 @@ export default function ViewNewsPage({ params }: { params: Promise<{ id: string 
   if (loading) return <div>Loading...</div>
   if (!newsData) return <div>News not found</div>
 
+  // Fix relative video URL
+  const baseUrl = 'https://visoniq.info'
+  const videoUrl = newsData.videoUrl
+    ? newsData.videoUrl.startsWith('http')
+      ? newsData.videoUrl
+      : `${baseUrl}${newsData.videoUrl}`
+    : null
+
   return (
     <div className={styles.container}>
       <Sidebar />
@@ -49,7 +57,7 @@ export default function ViewNewsPage({ params }: { params: Promise<{ id: string 
             {newsData.videoUrl && (
               <div style={{ marginTop: '20px' }}>
                 <video 
-                  src={newsData.videoUrl} 
+                  src={videoUrl!} 
                   controls 
                   style={{ width: '100%', maxHeight: '500px', borderRadius: '8px' }}
                 />

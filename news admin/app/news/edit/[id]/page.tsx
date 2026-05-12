@@ -101,7 +101,10 @@ export default function EditNewsPage({ params }: { params: Promise<{ id: string 
       
       setFormData(formDataToSet)
       if (news.videoUrl) {
-        setVideoPreview(news.videoUrl)
+        const fullVideoUrl = news.videoUrl.startsWith('http')
+          ? news.videoUrl
+          : `https://visoniq.info${news.videoUrl}`
+        setVideoPreview(fullVideoUrl)
       }
     } catch (error) {
       console.error('Failed to fetch news:', error)
