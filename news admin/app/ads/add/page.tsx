@@ -10,15 +10,21 @@ export default function AddAdvertisementPage() {
     description: '',
     imageUrl: '',
     clickUrl: '',
-    position: 'banner',
+    position: 'inline',
     status: 'active',
     startDate: '',
-    endDate: ''
+    endDate: '',
+    showInArticles: false,
+    showInReels: false,
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleCheckbox = (name: string, checked: boolean) => {
+    setFormData(prev => ({ ...prev, [name]: checked }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,10 +42,12 @@ export default function AddAdvertisementPage() {
           description: '',
           imageUrl: '',
           clickUrl: '',
-          position: 'banner',
+          position: 'inline',
           status: 'active',
           startDate: '',
-          endDate: ''
+          endDate: '',
+          showInArticles: false,
+          showInReels: false,
         })
       }
     } catch (error) {
@@ -105,19 +113,34 @@ export default function AddAdvertisementPage() {
               />
             </div>
 
+            {/* Show In Section */}
             <div className={styles.formGroup}>
-              <label>Position *</label>
-              <select
-                name="position"
-                value={formData.position}
-                onChange={handleChange}
-                className={styles.select}
-              >
-                <option value="banner">Banner (Top)</option>
-                <option value="sidebar">Sidebar</option>
-                <option value="inline">Inline (Between Content)</option>
-                <option value="popup">Popup</option>
-              </select>
+              <label style={{ fontWeight: '700', fontSize: '15px', marginBottom: '12px', display: 'block' }}>
+                Show In *
+              </label>
+              <div style={{ display: 'flex', gap: '30px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '15px' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.showInArticles}
+                    onChange={(e) => handleCheckbox('showInArticles', e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span>Articles (News Feed)</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '15px' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.showInReels}
+                    onChange={(e) => handleCheckbox('showInReels', e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span>Reels (Video Feed)</span>
+                </label>
+              </div>
+              <p style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
+                Ad will appear between content in selected sections
+              </p>
             </div>
 
             <div className={styles.formGroup}>

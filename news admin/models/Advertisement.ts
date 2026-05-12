@@ -21,6 +21,14 @@ const AdvertisementSchema = new mongoose.Schema({
     enum: ['banner', 'sidebar', 'inline', 'popup'],
     default: 'banner',
   },
+  showInArticles: {
+    type: Boolean,
+    default: false,
+  },
+  showInReels: {
+    type: Boolean,
+    default: false,
+  },
   status: {
     type: String,
     enum: ['active', 'inactive', 'scheduled'],

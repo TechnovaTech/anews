@@ -207,6 +207,16 @@ class ApiService {
     }
   }
 
+  // Get active ads
+  static Future<List<dynamic>> getAds() async {
+    final response = await http.get(Uri.parse('$baseUrl/ads?status=active'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['ads'] ?? [];
+    } else {
+      return [];
+    }
+  }
+
   // Update user profile
   static Future<Map<String, dynamic>> updateUserProfile(String userId, Map<String, dynamic> data) async {
     final response = await http.put(

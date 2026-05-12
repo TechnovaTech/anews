@@ -3969,6 +3969,7 @@ class FeedList extends StatefulWidget {
 
 class _FeedListState extends State<FeedList> {
   List<dynamic> _news = [];
+  List<dynamic> _ads = [];
   bool _loading = true;
 
   @override
@@ -4004,15 +4005,37 @@ class _FeedListState extends State<FeedList> {
       } else {
         news = await ApiService.getNews(categoryId: widget.categoryId, language: language);
       }
+
+      // Fetch ads for articles
+      final allAds = await ApiService.getAds();
+      final articleAds = allAds.where((ad) => ad['showInArticles'] == true).toList();
+
       if (mounted) {
         setState(() {
           _news = news;
+          _ads = articleAds;
           _loading = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  // Build list with ads injected every 5 items
+  List<dynamic> get _feedItems {
+    if (_ads.isEmpty) return _news;
+    final List<dynamic> items = [];
+    int adIndex = 0;
+    for (int i = 0; i < _news.length; i++) {
+      items.add(_news[i]);
+      // Insert ad after every 5 news items
+      if ((i + 1) % 5 == 0 && adIndex < _ads.length) {
+        items.add({'_isAd': true, ..._ads[adIndex]});
+        adIndex = (adIndex + 1) % _ads.length;
+      }
+    }
+    return items;
   }
 
   @override
@@ -4039,10 +4062,83 @@ class _FeedListState extends State<FeedList> {
 
     // List layout instead of card swipe
     return ListView.builder(
-      itemCount: _news.length,
+      itemCount: _feedItems.length,
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemBuilder: (context, index) {
-        final article = _news[index];
+        final item = _feedItems[index];
+
+        // ── Ad card ──────────────────────────────────────────────
+        if (item['_isAd'] == true) {
+          final adImageUrl = item['imageUrl']?.toString() ?? '';
+          final adClickUrl = item['clickUrl']?.toString() ?? '';
+          final adTitle = item['title']?.toString() ?? 'Advertisement';
+          return GestureDetector(
+            onTap: () {
+              // Could open URL - for now just show snackbar
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Opening: $adClickUrl')),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+                color: Colors.white,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Sponsored label
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Sponsored',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Ad image
+                  if (adImageUrl.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                      child: Image.network(
+                        adImageUrl,
+                        width: double.infinity,
+                        height: 160,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 160,
+                          color: Colors.grey.shade200,
+                          child: const Center(child: Icon(Icons.image, size: 40, color: Colors.grey)),
+                        ),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      adTitle,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // ── News card ─────────────────────────────────────────────
+        final article = item;
         final title = lang.getNewsContent(article, 'title');
         final summary = lang.getNewsContent(article, 'summary');
         final content = lang.getNewsContent(article, 'content');
