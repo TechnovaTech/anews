@@ -1044,6 +1044,8 @@ class MainNav extends StatefulWidget {
 class _MainNavState extends State<MainNav> {
   int _index = 0; // default to Home
 
+  void goHome() => setState(() => _index = 0);
+
   final _pages = const [
     HomeScreen(),
     VideosScreen(),
@@ -2090,7 +2092,11 @@ class _VideoPageState extends State<_VideoPage> {
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () {
-                        if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        } else {
+                          context.findAncestorStateOfType<_MainNavState>()?.goHome();
+                        }
                       },
                     ),
                   ),
@@ -3049,7 +3055,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with SingleTicker
                       Positioned(
                         right: 20,
                         bottom: 20,
-                        child: Column(
+                        child: Row(
                           children: [
                             GestureDetector(
                               onTap: () => setState(() => _liked = !_liked),
@@ -3059,8 +3065,16 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with SingleTicker
                                 size: 28,
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            const Icon(Icons.send, color: Colors.white, size: 28),
+                            const SizedBox(width: 16),
+                            GestureDetector(
+                              onTap: () {
+                                final story = widget.stories[_currentIndex];
+                                Share.share(
+                                  '${story['heading'] ?? story['storyName'] ?? ''}\n\n${story['description'] ?? ''}\n\nShared from Asiaze',
+                                );
+                              },
+                              child: const Icon(Icons.ios_share, color: Colors.white, size: 28),
+                            ),
                           ],
                         ),
                       ),
