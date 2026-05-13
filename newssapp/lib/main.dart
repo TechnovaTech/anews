@@ -4378,7 +4378,6 @@ class _FeedListState extends State<FeedList> {
                 builder: (context) => ArticlesFeedScreen(
                   articles: _news,
                   initialIndex: newsIndex < 0 ? 0 : newsIndex,
-                  ads: _ads,
                 ),
               ),
             );
@@ -5457,13 +5456,11 @@ class NewsCard extends StatelessWidget {
 class ArticlesFeedScreen extends StatefulWidget {
   final List<dynamic> articles;
   final int initialIndex;
-  final List<dynamic> ads;
 
   const ArticlesFeedScreen({
     super.key,
     required this.articles,
     required this.initialIndex,
-    this.ads = const [],
   });
 
   @override
@@ -5473,36 +5470,45 @@ class ArticlesFeedScreen extends StatefulWidget {
 class _ArticlesFeedScreenState extends State<ArticlesFeedScreen> {
   late PageController _pageController;
   double _currentPage = 0;
+  List<dynamic> _ads = [];
   final Map<int, VideoPlayerController> _videoControllers = {};
 
   List<dynamic> get _feedItems {
-    if (widget.ads.isEmpty) return widget.articles;
+    if (_ads.isEmpty) return widget.articles;
     final List<dynamic> items = [];
     int adIndex = 0;
     for (int i = 0; i < widget.articles.length; i++) {
       items.add(widget.articles[i]);
-      if ((i + 1) % 5 == 0 && adIndex < widget.ads.length) {
-        items.add({'_isAd': true, ...(widget.ads[adIndex] as Map<String, dynamic>)});
-        adIndex = (adIndex + 1) % widget.ads.length;
+      if ((i + 1) % 5 == 0 && adIndex < _ads.length) {
+        items.add({'_isAd': true, ...(_ads[adIndex] as Map<String, dynamic>)});
+        adIndex = (adIndex + 1) % _ads.length;
       }
     }
     return items;
   }
 
-  int get _initialFeedIndex {
-    if (widget.ads.isEmpty) return widget.initialIndex;
-    return widget.initialIndex + (widget.initialIndex ~/ 5);
-  }
-
   @override
   void initState() {
     super.initState();
-    final startPage = _initialFeedIndex;
-    _currentPage = startPage.toDouble();
-    _pageController = PageController(initialPage: startPage);
+    _currentPage = widget.initialIndex.toDouble();
+    _pageController = PageController(initialPage: widget.initialIndex);
     _pageController.addListener(_onScroll);
-    _initVideo(startPage);
-    _initVideo(startPage + 1);
+    _initVideo(widget.initialIndex);
+    _initVideo(widget.initialIndex + 1);
+    _fetchAds();
+  }
+
+  Future<void> _fetchAds() async {
+    try {
+      final ads = await ApiService.getAds();
+      if (!mounted || ads.isEmpty) return;
+      setState(() => _ads = ads);
+      // After ads inject, jump to corrected feed position
+      final correctPage = widget.initialIndex + (widget.initialIndex ~/ 5);
+      if (correctPage != widget.initialIndex && _pageController.hasClients) {
+        _pageController.jumpToPage(correctPage);
+      }
+    } catch (_) {}
   }
 
   void _onScroll() {
