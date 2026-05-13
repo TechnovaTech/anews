@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"d:\\\\asiaze news\\\\newssapp\"; D:\\\\flutter\\\\bin\\\\flutter.bat analyze lib/main.dart 2>&1 | Where-Object { $_ -match \"error\" })"
+    ]
+  }
+}

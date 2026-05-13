@@ -42,6 +42,19 @@ export default function ManageAdvertisementsPage() {
     }
   }
 
+  const handlePlacementToggle = async (id: string, field: string, current: boolean) => {
+    try {
+      await fetch(`/api/ads/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: !current })
+      })
+      fetchAds()
+    } catch (error) {
+      console.error('Error updating placement:', error)
+    }
+  }
+
   const handleStatusToggle = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
     try {
@@ -106,10 +119,8 @@ export default function ManageAdvertisementsPage() {
               <thead>
                 <tr>
                   <th>Title</th>
-                  <th>Position</th>
+                  <th>Placement</th>
                   <th>Status</th>
-                  <th>Start Date</th>
-                  <th>End Date</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -125,7 +136,28 @@ export default function ManageAdvertisementsPage() {
                       </div>
                     </td>
                     <td>
-                      <span className={styles.badge}>{ad.position}</span>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => handlePlacementToggle(ad._id, 'showInArticles', ad.showInArticles)}
+                          style={{
+                            padding: '3px 10px', borderRadius: '12px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                            background: ad.showInArticles ? '#16a34a' : '#e5e7eb',
+                            color: ad.showInArticles ? '#fff' : '#6b7280',
+                          }}
+                        >
+                          📰 Articles
+                        </button>
+                        <button
+                          onClick={() => handlePlacementToggle(ad._id, 'showInReels', ad.showInReels)}
+                          style={{
+                            padding: '3px 10px', borderRadius: '12px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                            background: ad.showInReels ? '#16a34a' : '#e5e7eb',
+                            color: ad.showInReels ? '#fff' : '#6b7280',
+                          }}
+                        >
+                          🎬 Reels
+                        </button>
+                      </div>
                     </td>
                     <td>
                       <span className={
@@ -136,8 +168,6 @@ export default function ManageAdvertisementsPage() {
                         {ad.status}
                       </span>
                     </td>
-                    <td>{formatDate(ad.startDate)}</td>
-                    <td>{formatDate(ad.endDate)}</td>
                     <td>
                       <div className={styles.actions}>
                         <button

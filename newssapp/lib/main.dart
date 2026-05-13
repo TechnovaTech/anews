@@ -9,6 +9,7 @@ import 'dart:math' show pi;
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'services/api_service.dart';
 import 'services/google_auth_service.dart';
 import 'services/facebook_auth_service.dart';
@@ -1624,9 +1625,24 @@ class _VideosScreenState extends State<VideosScreen> {
   bool _muted = true;
   late PageController _pageController;
   List<_VideoModel> _items = [];
+  List<dynamic> _reelAds = [];
   final Map<int, VideoPlayerController> _controllers = {};
   bool _loading = true;
   int _currentIndex = 0;
+
+  List<dynamic> get _feedItems {
+    if (_reelAds.isEmpty) return _items;
+    final List<dynamic> items = [];
+    int adIndex = 0;
+    for (int i = 0; i < _items.length; i++) {
+      items.add(_items[i]);
+      if ((i + 1) % 5 == 0 && adIndex < _reelAds.length) {
+        items.add({'_isAd': true, ...(_reelAds[adIndex] as Map<String, dynamic>)});
+        adIndex = (adIndex + 1) % _reelAds.length;
+      }
+    }
+    return items;
+  }
 
   @override
   void initState() {
@@ -1637,7 +1653,7 @@ class _VideosScreenState extends State<VideosScreen> {
   }
 
   VideoPlayerController _buildController(int index) {
-    final v = _items[index];
+    final v = _feedItems[index] as _VideoModel;
     VideoPlayerController c;
     if (v.url.startsWith('http://') || v.url.startsWith('https://')) {
       c = VideoPlayerController.networkUrl(Uri.parse(v.url));
@@ -1650,7 +1666,9 @@ class _VideosScreenState extends State<VideosScreen> {
   }
 
   Future<void> _initControllerAt(int index) async {
-    if (index < 0 || index >= _items.length) return;
+    final feed = _feedItems;
+    if (index < 0 || index >= feed.length) return;
+    if (feed[index] is! _VideoModel) return;
     if (_controllers.containsKey(index)) return;
     final c = _buildController(index);
     _controllers[index] = c;
@@ -1765,6 +1783,16 @@ class _VideosScreenState extends State<VideosScreen> {
         }
       }
 
+      // Fetch reel ads
+      try {
+        final reelAds = await ApiService.getAds();
+        if (mounted) {
+          setState(() {
+            _reelAds = reelAds;
+          });
+        }
+      } catch (_) {}
+
       // Lazy load: only init first reel and next one
       if (mounted) {
         // If opened from saved reel, find and jump to that reel
@@ -1862,10 +1890,13 @@ class _VideosScreenState extends State<VideosScreen> {
               : PageView.builder(
                   controller: _pageController,
                   scrollDirection: Axis.vertical,
-                  itemCount: _items.length,
+                  itemCount: _feedItems.length,
                   onPageChanged: _onPageChanged,
                   itemBuilder: (context, index) {
-                    final item = _items[index];
+                    final item = _feedItems[index];
+                    if (item is! _VideoModel) {
+                      return _ReelAdPage(ad: item as Map<String, dynamic>);
+                    }
                     final controller = _controllers[index];
                     if (controller == null) {
                       return Container(
@@ -2453,6 +2484,108 @@ class _VideoPageState extends State<_VideoPage> {
               ),
             ),
           ),
+      ],
+    );
+  }
+}
+
+// ---------------- Reel Ad Page ----------------
+class _ReelAdPage extends StatelessWidget {
+  final Map<String, dynamic> ad;
+
+  const _ReelAdPage({required this.ad});
+
+  @override
+  Widget build(BuildContext context) {
+    String imageUrl = ad['imageUrl']?.toString() ?? '';
+    if (imageUrl.startsWith('/uploads/')) imageUrl = '${ApiService.baseServerUrl}$imageUrl';
+    final title = ad['title']?.toString() ?? 'Advertisement';
+    final clickUrl = ad['clickUrl']?.toString() ?? '';
+    final topPad = MediaQuery.of(context).padding.top;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (imageUrl.isNotEmpty)
+          Image.network(imageUrl, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(color: const Color(0xFF0f0f0f)))
+        else
+          Container(color: const Color(0xFF0f0f0f)),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: const [0.0, 0.45, 1.0],
+                colors: [
+                  Colors.black.withOpacity(0.3),
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.78),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Sponsored badge
+        Positioned(
+          top: topPad + 14,
+          right: 14,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFB800),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.campaign, color: Colors.black, size: 13),
+                SizedBox(width: 4),
+                Text('Sponsored', style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ),
+        // Bottom content
+        Positioned(
+          left: 16, right: 16, bottom: 100,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, height: 1.3, shadows: [
+                  Shadow(color: Colors.black54, blurRadius: 4),
+                ]),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 14),
+              if (clickUrl.isNotEmpty)
+                GestureDetector(
+                  onTap: () async {
+                    final uri = Uri.tryParse(clickUrl);
+                    if (uri != null && await canLaunchUrl(uri)) {
+                      launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFB800),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Text(
+                      'Learn More',
+                      style: TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -4088,8 +4221,7 @@ class _FeedListState extends State<FeedList> {
       }
 
       // Fetch ads for articles
-      final allAds = await ApiService.getAds();
-      final articleAds = allAds.where((ad) => ad['showInArticles'] == true).toList();
+      final articleAds = await ApiService.getAds();
 
       if (mounted) {
         setState(() {
@@ -4150,17 +4282,21 @@ class _FeedListState extends State<FeedList> {
 
         // ── Ad card ──────────────────────────────────────────────
         if (item['_isAd'] == true) {
-          final adImageUrl = item['imageUrl']?.toString() ?? '';
+          String adImageUrl = item['imageUrl']?.toString() ?? '';
+          if (adImageUrl.startsWith('/uploads/')) adImageUrl = '${ApiService.baseServerUrl}$adImageUrl';
           final adVideoUrl = item['videoUrl']?.toString() ?? '';
           final adClickUrl = item['clickUrl']?.toString() ?? '';
           final adTitle = item['title']?.toString() ?? 'Advertisement';
           final isVideoAd = item['adType'] == 'video' && adVideoUrl.isNotEmpty;
 
           return GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Opening: $adClickUrl')),
-              );
+            onTap: () async {
+              if (adClickUrl.isNotEmpty) {
+                final uri = Uri.tryParse(adClickUrl);
+                if (uri != null && await canLaunchUrl(uri)) {
+                  launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              }
             },
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -4242,6 +4378,7 @@ class _FeedListState extends State<FeedList> {
                 builder: (context) => ArticlesFeedScreen(
                   articles: _news,
                   initialIndex: newsIndex < 0 ? 0 : newsIndex,
+                  ads: _ads,
                 ),
               ),
             );
@@ -5320,11 +5457,13 @@ class NewsCard extends StatelessWidget {
 class ArticlesFeedScreen extends StatefulWidget {
   final List<dynamic> articles;
   final int initialIndex;
+  final List<dynamic> ads;
 
   const ArticlesFeedScreen({
     super.key,
     required this.articles,
     required this.initialIndex,
+    this.ads = const [],
   });
 
   @override
@@ -5336,14 +5475,34 @@ class _ArticlesFeedScreenState extends State<ArticlesFeedScreen> {
   double _currentPage = 0;
   final Map<int, VideoPlayerController> _videoControllers = {};
 
+  List<dynamic> get _feedItems {
+    if (widget.ads.isEmpty) return widget.articles;
+    final List<dynamic> items = [];
+    int adIndex = 0;
+    for (int i = 0; i < widget.articles.length; i++) {
+      items.add(widget.articles[i]);
+      if ((i + 1) % 5 == 0 && adIndex < widget.ads.length) {
+        items.add({'_isAd': true, ...(widget.ads[adIndex] as Map<String, dynamic>)});
+        adIndex = (adIndex + 1) % widget.ads.length;
+      }
+    }
+    return items;
+  }
+
+  int get _initialFeedIndex {
+    if (widget.ads.isEmpty) return widget.initialIndex;
+    return widget.initialIndex + (widget.initialIndex ~/ 5);
+  }
+
   @override
   void initState() {
     super.initState();
-    _currentPage = widget.initialIndex.toDouble();
-    _pageController = PageController(initialPage: widget.initialIndex);
+    final startPage = _initialFeedIndex;
+    _currentPage = startPage.toDouble();
+    _pageController = PageController(initialPage: startPage);
     _pageController.addListener(_onScroll);
-    _initVideo(widget.initialIndex);
-    _initVideo(widget.initialIndex + 1);
+    _initVideo(startPage);
+    _initVideo(startPage + 1);
   }
 
   void _onScroll() {
@@ -5362,9 +5521,12 @@ class _ArticlesFeedScreenState extends State<ArticlesFeedScreen> {
   }
 
   Future<void> _initVideo(int index) async {
-    if (index < 0 || index >= widget.articles.length) return;
+    final items = _feedItems;
+    if (index < 0 || index >= items.length) return;
+    final item = items[index];
+    if (item is Map && (item as Map)['_isAd'] == true) return;
     if (_videoControllers.containsKey(index)) return;
-    final rawUrl = widget.articles[index]['videoUrl']?.toString() ?? '';
+    final rawUrl = (item as Map<String, dynamic>)['videoUrl']?.toString() ?? '';
     if (rawUrl.isEmpty) return;
     String url = rawUrl.trim();
     if (url.startsWith('/')) {
@@ -5403,20 +5565,24 @@ class _ArticlesFeedScreenState extends State<ArticlesFeedScreen> {
       body: PageView.builder(
         controller: _pageController,
         scrollDirection: Axis.vertical,
-        itemCount: widget.articles.length,
+        itemCount: _feedItems.length,
         onPageChanged: _onPageChanged,
         itemBuilder: (context, index) {
           final double value = index.toDouble() - _currentPage;
+          final item = _feedItems[index];
+          final isAd = item is Map && (item as Map)['_isAd'] == true;
           return Transform(
             transform: Matrix4.identity()
               ..setEntry(3, 2, 0.001)
               ..rotateX(value * (pi / 2)),
             alignment: value > 0 ? Alignment.topCenter : Alignment.bottomCenter,
-            child: _ArticleFeedPage(
-              article: widget.articles[index],
-              videoController: _videoControllers[index],
-              onBack: () => Navigator.pop(context),
-            ),
+            child: isAd
+                ? _ArticleAdPage(ad: item, onBack: () => Navigator.pop(context))
+                : _ArticleFeedPage(
+                    article: item,
+                    videoController: _videoControllers[index],
+                    onBack: () => Navigator.pop(context),
+                  ),
           );
         },
       ),
@@ -5676,6 +5842,131 @@ class _MediaImage extends StatelessWidget {
     );
   }
 }
+// ---------------- Article Ad Page ----------------
+class _ArticleAdPage extends StatelessWidget {
+  final dynamic ad;
+  final VoidCallback onBack;
+
+  const _ArticleAdPage({required this.ad, required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = ad as Map<String, dynamic>;
+    String imageUrl = a['imageUrl']?.toString() ?? '';
+    if (imageUrl.startsWith('/uploads/')) imageUrl = '${ApiService.baseServerUrl}$imageUrl';
+    final title = a['title']?.toString() ?? 'Advertisement';
+    final clickUrl = a['clickUrl']?.toString() ?? '';
+    final topPad = MediaQuery.of(context).padding.top;
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (imageUrl.isNotEmpty)
+            Image.network(imageUrl, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1a1a2e)))
+          else
+            Container(color: const Color(0xFF1a1a2e)),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.0, 0.35, 0.65, 1.0],
+                  colors: [
+                    Colors.black.withOpacity(0.55),
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.85),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Back button
+          Positioned(
+            top: topPad + 8,
+            left: 14,
+            child: GestureDetector(
+              onTap: onBack,
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+              ),
+            ),
+          ),
+          // Sponsored badge
+          Positioned(
+            top: topPad + 14,
+            right: 14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFB800),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.campaign, color: Colors.black, size: 13),
+                  SizedBox(width: 4),
+                  Text('Sponsored', style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ),
+          // Bottom ad content
+          Positioned(
+            left: 0, right: 0, bottom: 0,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, height: 1.2),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  if (clickUrl.isNotEmpty)
+                    GestureDetector(
+                      onTap: () async {
+                        final uri = Uri.tryParse(clickUrl);
+                        if (uri != null && await canLaunchUrl(uri)) {
+                          launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 13),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFB800),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: const Text(
+                          'Learn More',
+                          style: TextStyle(color: Colors.black, fontSize: 15, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ---------------- Explain Sheet ----------------
 class ExplainSheet extends StatelessWidget {
   final String title;
