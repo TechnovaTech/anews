@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'services/api_service.dart';
 import 'services/google_auth_service.dart';
 import 'services/facebook_auth_service.dart';
@@ -241,19 +242,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(120),
-                          child: Image.network(
-                            p.fallbackUrl,
+                          child: CachedNetworkImage(
+                            imageUrl: p.fallbackUrl,
                             height: 220,
                             width: 220,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stack) {
-                              return Container(
-                                height: 220,
-                                width: 220,
-                                color: Colors.grey[300],
-                                child: Icon(Icons.image, size: 80, color: Colors.grey[600]),
-                              );
-                            },
+                            placeholder: (_, __) => Container(height: 220, width: 220, color: Colors.grey[300]),
+                            errorWidget: (_, __, ___) => Container(height: 220, width: 220, color: Colors.grey[300], child: Icon(Icons.image, size: 80, color: Colors.grey[600])),
                           ),
                         ),
                         const SizedBox(height: 32),
@@ -1626,12 +1621,19 @@ class _VideosScreenState extends State<VideosScreen> {
   late PageController _pageController;
   List<_VideoModel> _items = [];
   List<dynamic> _reelAds = [];
+  List<dynamic> _feedItems = [];
   final Map<int, VideoPlayerController> _controllers = {};
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMoreReels = true;
+  int _reelPage = 1;
   int _currentIndex = 0;
 
-  List<dynamic> get _feedItems {
-    if (_reelAds.isEmpty) return _items;
+  void _rebuildFeedItems() {
+    if (_reelAds.isEmpty) {
+      _feedItems = _items;
+      return;
+    }
     final List<dynamic> items = [];
     int adIndex = 0;
     for (int i = 0; i < _items.length; i++) {
@@ -1641,7 +1643,7 @@ class _VideosScreenState extends State<VideosScreen> {
         adIndex = (adIndex + 1) % _reelAds.length;
       }
     }
-    return items;
+    _feedItems = items;
   }
 
   @override
@@ -1689,7 +1691,6 @@ class _VideosScreenState extends State<VideosScreen> {
     _disposeControllersExcept(index);
     await _initControllerAt(index);
     _initControllerAt(index + 1);
-    if (index > 0) _initControllerAt(index - 1);
     final c = _controllers[index];
     if (c != null && c.value.isInitialized) {
       c.setVolume(_muted ? 0 : 1);
@@ -1708,20 +1709,24 @@ class _VideosScreenState extends State<VideosScreen> {
       List<dynamic> reels;
       if (widget.savedReelUrl != null) {
         // Opened from saved — fetch all reels to find the saved one
-        reels = await ApiService.getReels();
+        final r = await ApiService.getReelsPaged(page: 1);
+        reels = r['reels'] as List<dynamic>;
+        _hasMoreReels = 1 < ((r['pagination'] as Map)['pages'] ?? 1);
       } else if (categoryIds.isEmpty) {
-        print('📡 Fetching all reels (no category filter)');
-        reels = await ApiService.getReels(language: langCode);
+        final r = await ApiService.getReelsPaged(language: langCode, page: 1);
+        reels = r['reels'] as List<dynamic>;
+        _hasMoreReels = 1 < ((r['pagination'] as Map)['pages'] ?? 1);
       } else {
         print('📡 Fetching reels for categories: $categoryIds');
         reels = [];
         for (final id in categoryIds) {
-          final categoryReels = await ApiService.getReels(categoryId: id, language: langCode);
-          reels.addAll(categoryReels);
+          final r = await ApiService.getReelsPaged(categoryId: id, language: langCode, page: 1);
+          reels.addAll(r['reels'] as List<dynamic>);
         }
         if (reels.isEmpty) {
-          print('⚠️ No reels found for selected categories, fetching all reels');
-          reels = await ApiService.getReels();
+          final r = await ApiService.getReelsPaged(page: 1);
+          reels = r['reels'] as List<dynamic>;
+          _hasMoreReels = 1 < ((r['pagination'] as Map)['pages'] ?? 1);
         }
       }
       print('✅ Fetched ${reels.length} reels from API');
@@ -1780,6 +1785,7 @@ class _VideosScreenState extends State<VideosScreen> {
             }).toList();
             _loading = false;
           });
+          _rebuildFeedItems();
         }
       }
 
@@ -1787,9 +1793,9 @@ class _VideosScreenState extends State<VideosScreen> {
       try {
         final reelAds = await ApiService.getAds();
         if (mounted) {
-          setState(() {
-            _reelAds = reelAds;
-          });
+          _reelAds = reelAds;
+          _rebuildFeedItems();
+          setState(() {});
         }
       } catch (_) {}
 
@@ -1856,6 +1862,38 @@ class _VideosScreenState extends State<VideosScreen> {
     _loadAround(index);
     for (final entry in _controllers.entries) {
       if (entry.key != index) entry.value.pause();
+    }
+    if (index >= _feedItems.length - 3 && _hasMoreReels && !_loadingMore) {
+      _loadMoreReels();
+    }
+  }
+
+  Future<void> _loadMoreReels() async {
+    if (_loadingMore || !_hasMoreReels) return;
+    _loadingMore = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final langCode = prefs.getString('language') ?? 'EN';
+      final result = await ApiService.getReelsPaged(language: langCode, page: _reelPage + 1);
+      final newReels = result['reels'] as List<dynamic>;
+      final pagination = result['pagination'] as Map<String, dynamic>;
+      if (!mounted) return;
+      _reelPage++;
+      _hasMoreReels = _reelPage < (pagination['pages'] ?? 1);
+      final newItems = newReels.where((r) => (r['videoUrl'] ?? '').toString().isNotEmpty).map((r) {
+        String videoUrl = r['videoUrl'] ?? '';
+        String thumbnail = r['thumbnail'] ?? '';
+        if (videoUrl.startsWith('/uploads/')) videoUrl = '${ApiService.baseServerUrl}/api$videoUrl';
+        else if (!videoUrl.startsWith('http')) videoUrl = '${ApiService.baseServerUrl}/api/uploads/$videoUrl';
+        if (thumbnail.startsWith('/uploads/')) thumbnail = '${ApiService.baseServerUrl}$thumbnail';
+        if (!thumbnail.contains('/uploads/')) thumbnail = '';
+        return _VideoModel(id: r['_id']?.toString() ?? '', url: videoUrl, image: thumbnail, title: r['title'] ?? 'News Reel', description: r['description'] ?? '', category: r['category']?['name'] ?? 'News', source: 'ASIAZE', timeAgo: formatPublishedDate(r['publishedAt']), likes: r['likes'] ?? 0, saves: r['saves'] ?? 0, views: r['views'] ?? 0);
+      }).toList();
+      _items.addAll(newItems);
+      _rebuildFeedItems();
+      setState(() { _loadingMore = false; });
+    } catch (_) {
+      _loadingMore = false;
     }
   }
 
@@ -2507,8 +2545,9 @@ class _ReelAdPage extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         if (imageUrl.isNotEmpty)
-          Image.network(imageUrl, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: const Color(0xFF0f0f0f)))
+          CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover,
+              placeholder: (_, __) => Container(color: Colors.black),
+              errorWidget: (_, __, ___) => Container(color: const Color(0xFF0f0f0f)))
         else
           Container(color: const Color(0xFF0f0f0f)),
         Positioned.fill(
@@ -2847,15 +2886,14 @@ class _StoryGridScreenState extends State<StoryGridScreen> {
                                                       imageUrl.replaceFirst('asset:', ''),
                                                       fit: BoxFit.cover,
                                                     )
-                                                  : Image.network(
-                                                      imageUrl,
+                                                  : CachedNetworkImage(
+                                                      imageUrl: imageUrl,
                                                       fit: BoxFit.cover,
-                                                      errorBuilder: (context, error, stack) {
-                                                        return Container(
-                                                          color: Colors.grey.shade200,
-                                                          child: Icon(Icons.broken_image, size: 30, color: Colors.grey.shade500),
-                                                        );
-                                                      },
+                                                      placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                                                      errorWidget: (_, __, ___) => Container(
+                                                        color: Colors.grey.shade200,
+                                                        child: Icon(Icons.broken_image, size: 30, color: Colors.grey.shade500),
+                                                      ),
                                                     ),
                                           Container(
                                             decoration: BoxDecoration(
@@ -3102,22 +3140,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with SingleTicker
                                             }),
                                         )
                                       : SizedBox.expand(
-                                          child: Image.network(
-                                            mediaUrl,
+                                          child: CachedNetworkImage(
+                                            imageUrl: mediaUrl,
                                             fit: BoxFit.cover,
                                             width: double.infinity,
                                             height: double.infinity,
-                                            loadingBuilder: (context, child, loadingProgress) {
-                                              if (loadingProgress == null) return child;
-                                              return Container(
-                                                color: Colors.black,
-                                                child: const Center(
-                                                  child: CircularProgressIndicator(color: Colors.white),
-                                                ),
-                                              );
-                                            },
-                                            errorBuilder: (context, error, stackTrace) {
-                                              print('❌ Image load error for $mediaUrl: $error');
+                                            placeholder: (_, __) => Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Colors.white))),
+                                            errorWidget: (context, error, stackTrace) {
                                               return Container(
                                                 color: Colors.grey.shade800,
                                                 child: Center(
@@ -3126,7 +3155,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with SingleTicker
                                                     children: [
                                                       const Icon(Icons.broken_image, size: 80, color: Colors.white54),
                                                       Text('Image ${mediaIndex + 1}', style: const TextStyle(color: Colors.white)),
-                                                      Text('URL: $mediaUrl', style: const TextStyle(color: Colors.white54, fontSize: 10)),
                                                       const SizedBox(height: 8),
                                                       const Text('Check if server is running', style: TextStyle(color: Colors.white54, fontSize: 12)),
                                                     ],
@@ -3687,11 +3715,13 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
                                     height: 280,
                                     fit: BoxFit.cover,
                                   )
-                                : Image.network(
-                                    imageUrl,
+                                : CachedNetworkImage(
+                                    imageUrl: imageUrl,
                                     width: 320,
                                     height: 280,
                                     fit: BoxFit.cover,
+                                    placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                                    errorWidget: (_, __, ___) => Container(color: Colors.grey.shade300),
                                   ),
                           ),
                           // Gradient overlay
@@ -3878,11 +3908,13 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
                                 height: 80,
                                 fit: BoxFit.cover,
                               )
-                            : Image.network(
-                                imageUrl,
+                            : CachedNetworkImage(
+                                imageUrl: imageUrl,
                                 width: 80,
                                 height: 80,
                                 fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                                errorWidget: (_, __, ___) => Container(color: Colors.grey.shade300),
                               ),
                       ),
                       const SizedBox(width: 12),
@@ -4020,26 +4052,11 @@ class _BreakingNewsPageState extends State<BreakingNewsPage> {
                                 },
                               )
                             else if (thumbnailUrl.isNotEmpty)
-                              Image.network(
-                                thumbnailUrl,
+                              CachedNetworkImage(
+                                imageUrl: thumbnailUrl,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey.shade800,
-                                    child: const Center(
-                                      child: Icon(Icons.videocam, color: Colors.white, size: 40),
-                                    ),
-                                  );
-                                },
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Container(
-                                    color: Colors.grey.shade800,
-                                    child: const Center(
-                                      child: CircularProgressIndicator(color: Colors.white),
-                                    ),
-                                  );
-                                },
+                                placeholder: (_, __) => Container(color: Colors.grey.shade800, child: const Center(child: CircularProgressIndicator(color: Colors.white))),
+                                errorWidget: (_, __, ___) => Container(color: Colors.grey.shade800, child: const Center(child: Icon(Icons.videocam, color: Colors.white, size: 40))),
                               )
                             else
                               Container(
@@ -4184,71 +4201,94 @@ class FeedList extends StatefulWidget {
 class _FeedListState extends State<FeedList> {
   List<dynamic> _news = [];
   List<dynamic> _ads = [];
+  List<dynamic> _feedItems = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
+  late ScrollController _scrollController;
+  String _language = 'english';
 
   @override
   void initState() {
     super.initState();
-    _fetchNews();
+    _scrollController = ScrollController()..addListener(_onScroll);
+    _fetchNews(reset: true);
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _fetchNews();
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
-  Future<void> _fetchNews() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final langCode = prefs.getString('language') ?? 'EN';
-      final language = langCode == 'HIN' ? 'hindi' : (langCode == 'BEN' ? 'bengali' : 'english');
-      
-      List<dynamic> news;
-      if (widget.categoryName == 'My Feed' || widget.categoryName.contains('फ़ीड') || widget.categoryName.contains('ফিড')) {
-        final categoryIds = prefs.getStringList('categoryIds') ?? [];
-        if (categoryIds.isEmpty) {
-          news = await ApiService.getNews(language: language);
-        } else {
-          news = [];
-          for (final id in categoryIds) {
-            final categoryNews = await ApiService.getNews(categoryId: id, language: language);
-            news.addAll(categoryNews);
-          }
-        }
-      } else {
-        news = await ApiService.getNews(categoryId: widget.categoryId, language: language);
-      }
-
-      // Fetch ads for articles
-      final articleAds = await ApiService.getAds();
-
-      if (mounted) {
-        setState(() {
-          _news = news;
-          _ads = articleAds;
-          _loading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _loading = false);
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 400 && _hasMore && !_loadingMore) {
+      _fetchNews();
     }
   }
 
-  // Build list with ads injected every 5 items
-  List<dynamic> get _feedItems {
-    if (_ads.isEmpty) return _news;
+  void _rebuildFeedItems() {
+    if (_ads.isEmpty) { _feedItems = _news; return; }
     final List<dynamic> items = [];
     int adIndex = 0;
     for (int i = 0; i < _news.length; i++) {
       items.add(_news[i]);
-      // Insert ad after every 5 news items
       if ((i + 1) % 5 == 0 && adIndex < _ads.length) {
         items.add({'_isAd': true, ..._ads[adIndex]});
         adIndex = (adIndex + 1) % _ads.length;
       }
     }
-    return items;
+    _feedItems = items;
+  }
+
+  Future<void> _fetchNews({bool reset = false}) async {
+    if (!reset && (_loadingMore || !_hasMore)) return;
+    if (reset) { _page = 1; _hasMore = true; }
+    if (mounted) setState(() => reset ? _loading = true : _loadingMore = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final langCode = prefs.getString('language') ?? 'EN';
+      _language = langCode == 'HIN' ? 'hindi' : (langCode == 'BEN' ? 'bengali' : 'english');
+
+      List<dynamic> newItems = [];
+      bool hasMore = false;
+
+      if (widget.categoryName == 'My Feed' || widget.categoryName.contains('फ़ीड') || widget.categoryName.contains('ফিড')) {
+        final categoryIds = prefs.getStringList('categoryIds') ?? [];
+        if (categoryIds.isEmpty) {
+          final result = await ApiService.getNewsPaged(language: _language, page: _page);
+          newItems = result['news'] as List<dynamic>;
+          final pagination = result['pagination'] as Map<String, dynamic>;
+          hasMore = _page < (pagination['pages'] ?? 1);
+        } else {
+          for (final id in categoryIds) {
+            final result = await ApiService.getNewsPaged(categoryId: id, language: _language, page: _page);
+            newItems.addAll(result['news'] as List<dynamic>);
+          }
+          hasMore = newItems.length >= 20;
+        }
+      } else {
+        final result = await ApiService.getNewsPaged(categoryId: widget.categoryId, language: _language, page: _page);
+        newItems = result['news'] as List<dynamic>;
+        final pagination = result['pagination'] as Map<String, dynamic>;
+        hasMore = _page < (pagination['pages'] ?? 1);
+      }
+
+      if (_ads.isEmpty) {
+        _ads = await ApiService.getAds();
+      }
+
+      if (mounted) {
+        if (reset) _news = newItems; else _news.addAll(newItems);
+        _hasMore = hasMore;
+        _page++;
+        _rebuildFeedItems();
+        setState(() { _loading = false; _loadingMore = false; });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _loading = false; _loadingMore = false; });
+    }
   }
 
   @override
@@ -4275,9 +4315,16 @@ class _FeedListState extends State<FeedList> {
 
     // List layout instead of card swipe
     return ListView.builder(
-      itemCount: _feedItems.length,
+      controller: _scrollController,
+      itemCount: _feedItems.length + (_loadingMore ? 1 : 0),
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemBuilder: (context, index) {
+        if (index == _feedItems.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
         final item = _feedItems[index];
 
         // ── Ad card ──────────────────────────────────────────────
@@ -4338,16 +4385,13 @@ class _FeedListState extends State<FeedList> {
                   else if (adImageUrl.isNotEmpty)
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
-                      child: Image.network(
-                        adImageUrl,
+                      child: CachedNetworkImage(
+                        imageUrl: adImageUrl,
                         width: double.infinity,
                         height: 160,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          height: 160,
-                          color: Colors.grey.shade200,
-                          child: const Center(child: Icon(Icons.image, size: 40, color: Colors.grey)),
-                        ),
+                        placeholder: (_, __) => Container(height: 160, color: Colors.grey.shade100),
+                        errorWidget: (_, __, ___) => Container(height: 160, color: Colors.grey.shade200, child: const Center(child: Icon(Icons.image, size: 40, color: Colors.grey))),
                       ),
                     ),
                   Padding(
@@ -4405,11 +4449,13 @@ class _FeedListState extends State<FeedList> {
                               height: 120,
                               fit: BoxFit.cover,
                             )
-                          : Image.network(
-                              imageUrl,
+                          : CachedNetworkImage(
+                              imageUrl: imageUrl,
                               width: 120,
                               height: 120,
                               fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                              errorWidget: (_, __, ___) => Container(color: Colors.grey.shade300),
                             ),
                     ),
                     // Play button overlay
@@ -5226,13 +5272,11 @@ class _SavedReelsTabState extends State<SavedReelsTab> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: r.thumbnail.isNotEmpty
-                        ? Image.network(
-                            r.thumbnail,
+                        ? CachedNetworkImage(
+                            imageUrl: r.thumbnail,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: Colors.grey.shade800,
-                              child: const Icon(Icons.videocam, color: Colors.white, size: 40),
-                            ),
+                            placeholder: (_, __) => Container(color: Colors.grey.shade800),
+                            errorWidget: (_, __, ___) => Container(color: Colors.grey.shade800, child: const Icon(Icons.videocam, color: Colors.white, size: 40)),
                           )
                         : Container(
                             color: Colors.grey.shade800,
@@ -5297,7 +5341,7 @@ class SavedArticlesTab extends StatelessWidget {
     } else if (image.startsWith('refranceimages/')) {
       return Image.asset(image, height: 160, width: double.infinity, fit: BoxFit.cover);
     } else {
-      return Image.network(image, height: 160, width: double.infinity, fit: BoxFit.cover);
+      return CachedNetworkImage(imageUrl: image, height: 160, width: double.infinity, fit: BoxFit.cover, placeholder: (_, __) => Container(height: 160, color: Colors.grey.shade200), errorWidget: (_, __, ___) => Container(height: 160, color: Colors.grey.shade300));
     }
   }
 
@@ -5425,8 +5469,9 @@ class NewsCard extends StatelessWidget {
                 flex: 60,
                 child: imageUrl.startsWith('asset:')
                     ? Image.asset(imageUrl.replaceFirst('asset:', ''), fit: BoxFit.cover, width: double.infinity)
-                    : Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity,
-                        errorBuilder: (_, __, ___) => Image.asset('refranceimages/Group (16).png', fit: BoxFit.cover)),
+                    : CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover, width: double.infinity,
+                        placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                        errorWidget: (_, __, ___) => Image.asset('refranceimages/Group (16).png', fit: BoxFit.cover)),
               ),
               Expanded(
                 flex: 40,
@@ -5471,10 +5516,14 @@ class _ArticlesFeedScreenState extends State<ArticlesFeedScreen> {
   late PageController _pageController;
   double _currentPage = 0;
   List<dynamic> _ads = [];
+  List<dynamic> _feedItems = [];
   final Map<int, VideoPlayerController> _videoControllers = {};
 
-  List<dynamic> get _feedItems {
-    if (_ads.isEmpty) return widget.articles;
+  void _rebuildFeedItems() {
+    if (_ads.isEmpty) {
+      _feedItems = widget.articles;
+      return;
+    }
     final List<dynamic> items = [];
     int adIndex = 0;
     for (int i = 0; i < widget.articles.length; i++) {
@@ -5484,12 +5533,13 @@ class _ArticlesFeedScreenState extends State<ArticlesFeedScreen> {
         adIndex = (adIndex + 1) % _ads.length;
       }
     }
-    return items;
+    _feedItems = items;
   }
 
   @override
   void initState() {
     super.initState();
+    _rebuildFeedItems();
     _currentPage = widget.initialIndex.toDouble();
     _pageController = PageController(initialPage: widget.initialIndex);
     _pageController.addListener(_onScroll);
@@ -5502,8 +5552,9 @@ class _ArticlesFeedScreenState extends State<ArticlesFeedScreen> {
     try {
       final ads = await ApiService.getAds();
       if (!mounted || ads.isEmpty) return;
-      setState(() => _ads = ads);
-      // After ads inject, jump to corrected feed position
+      _ads = ads;
+      _rebuildFeedItems();
+      setState(() {});
       final correctPage = widget.initialIndex + (widget.initialIndex ~/ 5);
       if (correctPage != widget.initialIndex && _pageController.hasClients) {
         _pageController.jumpToPage(correctPage);
@@ -5561,7 +5612,6 @@ class _ArticlesFeedScreenState extends State<ArticlesFeedScreen> {
     }
     _videoControllers[index]?.play();
     _initVideo(index + 1);
-    _initVideo(index - 1);
   }
 
   @override
@@ -5839,12 +5889,13 @@ class _MediaImage extends StatelessWidget {
     if (imageUrl.startsWith('asset:')) {
       return Image.asset(imageUrl.replaceFirst('asset:', ''), fit: BoxFit.cover, width: double.infinity, height: double.infinity);
     }
-    return Image.network(
-      imageUrl,
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
-      errorBuilder: (_, __, ___) => Image.asset('refranceimages/Group (16).png', fit: BoxFit.cover),
+      placeholder: (_, __) => Container(color: Colors.grey.shade200),
+      errorWidget: (_, __, ___) => Image.asset('refranceimages/Group (16).png', fit: BoxFit.cover),
     );
   }
 }
@@ -5872,8 +5923,9 @@ class _ArticleAdPage extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (imageUrl.isNotEmpty)
-            Image.network(imageUrl, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1a1a2e)))
+            CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover,
+                placeholder: (_, __) => Container(color: Colors.black),
+                errorWidget: (_, __, ___) => Container(color: const Color(0xFF1a1a2e)))
           else
             Container(color: const Color(0xFF1a1a2e)),
           Positioned.fill(
@@ -6204,17 +6256,13 @@ class _RewardScreenState extends State<RewardScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    reward['imageUrl'].toString().startsWith('http') 
+                  child: CachedNetworkImage(
+                    imageUrl: reward['imageUrl'].toString().startsWith('http')
                         ? reward['imageUrl'].toString()
                         : '${ApiService.baseServerUrl}${reward['imageUrl']}',
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) {
-                      return Container(
-                        color: Colors.grey.shade200,
-                        child: const Icon(Icons.card_giftcard, size: 40),
-                      );
-                    },
+                    placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                    errorWidget: (_, __, ___) => Container(color: Colors.grey.shade200, child: const Icon(Icons.card_giftcard, size: 40)),
                   ),
                 ),
               ),
@@ -6508,16 +6556,13 @@ class _RewardCard extends StatelessWidget {
               child: imageUrl.isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        imageUrl,
+                      child: CachedNetworkImage(
+                        imageUrl: imageUrl,
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stack) {
-                          return const Center(
-                            child: Icon(Icons.card_giftcard, size: 24, color: Colors.grey),
-                          );
-                        },
+                        placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                        errorWidget: (_, __, ___) => const Center(child: Icon(Icons.card_giftcard, size: 24, color: Colors.grey)),
                       ),
                     )
                   : const Center(

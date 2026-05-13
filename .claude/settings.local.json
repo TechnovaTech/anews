@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(cd \"d:\\\\asiaze news\\\\newssapp\"; D:\\\\flutter\\\\bin\\\\flutter.bat analyze lib/main.dart 2>&1 | Where-Object { $_ -match \"error\" })"
+      "PowerShell(cd \"d:\\\\asiaze news\\\\newssapp\"; D:\\\\flutter\\\\bin\\\\flutter.bat analyze lib/main.dart 2>&1 | Where-Object { $_ -match \"error\" })",
+      "PowerShell(cd \"d:\\\\asiaze news\\\\newssapp\"; D:\\\\flutter\\\\bin\\\\flutter.bat analyze lib/ 2>&1 | Where-Object { $_ -match \"error -\" })",
+      "PowerShell(cd \"d:\\\\asiaze news\\\\newssapp\"; D:\\\\flutter\\\\bin\\\\flutter.bat analyze lib/ 2>&1 | Where-Object { $_ -match \"error|warning\" } | Select-Object -First 10)"
     ]
   }
 }

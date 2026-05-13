@@ -23,12 +23,21 @@ export async function GET(req: NextRequest) {
     if (category) query.category = category;
     if (language) query.language = language;
 
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const skip = (page - 1) * limit;
+
     console.log('Reels query:', query);
-    const reels = await Reel.find(query)
-      .populate('category', 'name')
-      .lean()
-      .sort({ createdAt: -1 });
-    
+    const [reels, total] = await Promise.all([
+      Reel.find(query)
+        .populate('category', 'name')
+        .lean()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Reel.countDocuments(query)
+    ]);
+
     // Convert relative URLs to absolute URLs
     const baseUrl = process.env.BASE_URL || 'https://asiaze.cloud';
     const reelsWithFullUrls = reels.map(reel => ({
@@ -36,9 +45,9 @@ export async function GET(req: NextRequest) {
       videoUrl: reel.videoUrl?.startsWith('http') ? reel.videoUrl : `${baseUrl}${reel.videoUrl}`,
       thumbnail: reel.thumbnail?.startsWith('http') ? reel.thumbnail : (reel.thumbnail?.startsWith('data:') ? reel.thumbnail : `${baseUrl}${reel.thumbnail}`)
     }));
-    
-    console.log(`Found ${reels.length} reels`);
-    return createCorsResponse({ reels: reelsWithFullUrls });
+
+    console.log(`Found ${reels.length} reels (page ${page}/${Math.ceil(total / limit)})`);
+    return createCorsResponse({ reels: reelsWithFullUrls, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (error: any) {
     console.error('Error fetching reels:', error);
     return createCorsErrorResponse(error.message || 'Failed to fetch reels', 500);
